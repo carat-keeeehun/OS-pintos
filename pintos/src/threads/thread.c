@@ -30,9 +30,9 @@ static struct list all_list;
 
 
 // *********** List for sleeping list, which never be scheduled.
-static struct list sleep_list;
+//static struct list sleep_list;
 // *********** variable for minimum tick in sleep_list
-static int64_t minimum_tick;
+//static int64_t minimum_tick;
 
 
 /* Idle thread. */
@@ -100,7 +100,7 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
   // add sleep_list initialization
-  list_init (&sleep_list);
+  //list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -331,7 +331,7 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
-/ **************** thread_sleep ******************
+/* **************** thread_sleep ******************
 // Sleeps current thread and add it to sleep_list
 void
 thread_sleep (int64_t wakeup_ticks)
@@ -401,7 +401,7 @@ thread_wakeup (int64_t ticks)
 	min_tick(t->wticks);
       }      
     }
-}
+}*/
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
