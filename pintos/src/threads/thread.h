@@ -117,10 +117,10 @@ void thread_tick (void);
 void thread_print_stats (void);
 
 // **********************************************************
-//void thread_sleep(int64_t wakeup_ticks);
+void thread_sleep(int64_t wt);
 //void min_tick(int64_t wticks);
 //int64_t get_min_tick(void);
-//void thread_wakeup(int64_t ticks);
+void thread_wakeup(int64_t tick);
 // **********************************************************
 
 typedef void thread_func (void *aux);

@@ -20,8 +20,7 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
-static struct list sleep_list;
-int64_t min_wakeup_tick;
+//static struct list sleep_list;
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
@@ -40,7 +39,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  list_init(&sleep_list);
+  //list_init(&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -93,21 +92,23 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  /*int64_t start = timer_ticks ();
+  int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
 
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();*/
+  thread_sleep(start + ticks);
+
+  /*while (timer_elapsed (start) < ticks) 
+    thread_yield ();
+
+  struct thread *cur;
+  enum intr_level old_level;
 
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
 
-  //thread_sleep(start + ticks);
-
-  struct thread *cur = thread_current();
-  enum intr_level old_level;
+  cur = thread_current();
   old_level = intr_disable();
 
   cur->wakeup_tick = start + ticks;
@@ -116,7 +117,7 @@ timer_sleep (int64_t ticks)
 
   thread_block();
 
-  intr_set_level(old_level);
+  intr_set_level(old_level);*/
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -193,15 +194,13 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  struct list_elem *e;
-  struct thread *t;
+  //struct list_elem *e;
+  //struct thread *t;
 
   ticks++;
   thread_tick ();
-
-  //if(get_min_tick() <= ticks)
-  //  thread_wakeup(ticks);
-
+  thread_wakeup(ticks);
+/*
   while(!list_empty(&sleep_list))
   {
     e = list_front(&sleep_list);
@@ -211,7 +210,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
     else{
       list_remove(e);
       thread_unblock(t);}
-  }
+  }*/
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
