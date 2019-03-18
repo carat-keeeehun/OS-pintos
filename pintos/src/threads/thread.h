@@ -100,6 +100,9 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    // tick for thread to wake up
+    int64_t wticks;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -112,6 +115,13 @@ void thread_start (void);
 
 void thread_tick (void);
 void thread_print_stats (void);
+
+// **********************************************************
+void thread_sleep(int64_t wakeup_ticks);
+void min_tick(int64_t wticks);
+int64_t get_min_tick(void);
+void thread_wakeup(int64_t ticks);
+// **********************************************************
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
@@ -137,5 +147,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+bool less_wakeup_tick (struct list_elem *e1, struct list_elem *e2, void *aux);
 
 #endif /* threads/thread.h */

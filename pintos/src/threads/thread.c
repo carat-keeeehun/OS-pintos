@@ -28,6 +28,13 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+
+// *********** List for sleeping list, which never be scheduled.
+static struct list sleep_list;
+// *********** variable for minimum tick in sleep_list
+static int64_t minimum_tick;
+
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -92,6 +99,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  // add sleep_list initialization
+  //list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -320,6 +329,78 @@ thread_yield (void)
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
+}
+
+/ **************** thread_sleep ******************
+// Sleeps current thread and add it to sleep_list
+void
+thread_sleep (int64_t wakeup_ticks)
+{
+  struct thread *cur = thread_current ();
+  ASSERT(cur != idle_thread);
+  enum intr_level old_level;
+
+  old_level = intr_disable(); // off the interrupt and store previous interrupt
+
+  // set the minimum value of wticks.
+  cur->wticks = wakeup_ticks;
+  min_tick(cur->wticks);
+  
+  // add current thread to end of sleep_list. (FIFO)
+  if(cur!=idle_thread)
+    list_push_back(&sleep_list, &cur->elem);
+
+  // make current thread blocked.
+  thread_block();
+
+  intr_set_level(old_level); // on the interrupt again
+}
+
+// ***************** min_tick ******************
+//   Among sleeping threads, update the minimum value of wticks.
+void
+min_tick(int64_t wticks)
+{
+  if(minimum_tick > wticks) minimum_tick = wticks;
+}
+// Return the value of min_tick. In timer.c, it refer to only thread.h,
+// not thread.c, so we should using these two function*
+int64_t
+get_min_tick(void)
+{
+  return minimum_tick;
+}
+
+// ******************* thread_wakeup *******************
+//  Wakes up thread in sleep_list which has min_tick *
+void
+thread_wakeup (int64_t ticks)
+{
+// Because thread which has minimum wticks will be removed, we should
+// reset the min_tick in while loop *
+  minimum_tick = 9223372036854775807; // max value of int64.
+// Iterates sleep_list from begin to end. And find threads whose
+// wticks is over current tick, then wake up them. *
+  struct list_elem *e;
+  e = list_begin (&sleep_list);
+// Because list_remove returns elem->next, I use a while loop,
+// not a for loop. And by using loop, we can solve simultaneous part *
+  while (e != list_end (&sleep_list))
+    {
+      struct thread *t = list_entry (e, struct thread, elem);
+
+      if(ticks >= t->wticks)
+      {
+      // Excludes this thread from sleep_list and unblocks it.
+	e = list_remove(&t->elem);
+	thread_unblock(t);
+      }
+      else
+      {
+	e = list_next(e);
+	min_tick(t->wticks);
+      }      
+    }
 }
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
@@ -585,3 +666,15 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+/* To use list_insert_ordered function, I make a list_less_function below,
+   which is boolean function and notifies what is less value. */
+
+bool less_wakeup_tick(struct list_elem *e1, struct list_elem *e2, void *aux)
+{
+  struct thread *t1 = list_entry(e1, struct thread, elem);
+  struct thread *t2 = list_entry(e2, struct thread, elem);
+
+  if(t1->wakeup_tick < t2->wakeup_tick) return 1;
+  else return 0;
+}
