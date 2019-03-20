@@ -653,16 +653,16 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 /* To use list_insert_ordered function, I make a list_less_function below,
    which is boolean function and notifies what is less value. */
 
-/*
+
 bool less_wakeup_tick(struct list_elem *e1, struct list_elem *e2, void *aux)
 {
-  struct thread *t1 = list_entry(e1, struct thread, elem);
-  struct thread *t2 = list_entry(e2, struct thread, elem);
+  struct thread *t1 = list_entry (e1, struct thread, elem);
+  struct thread *t2 = list_entry (e2, struct thread, elem);
 
   if(t1->wakeup_tick < t2->wakeup_tick) return 1;
-  else return 0;
+  return 0;
 }
-
+/*
 bool prior_thread(struct list_elem *e1, struct list_elem *e2, void *aux)
 {
   struct thread *t1 = list_entry(e1, struct thread, elem);

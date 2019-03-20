@@ -40,6 +40,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  //Because I made new list, sleep_list, so I must initialize by
+  //using list_init in timer_init.
   list_init (&sleep_list);
 }
 
@@ -98,8 +100,9 @@ timer_sleep (int64_t ticks)
   ASSERT (intr_get_level () == INTR_ON);
 
   while (timer_elapsed (start) < ticks) 
-    thread_yield ();*/
-  
+    thread_yield ();
+  */
+
   struct thread *curr;
   enum intr_level old_level;
   int64_t start = timer_ticks ();
@@ -108,8 +111,8 @@ timer_sleep (int64_t ticks)
 
   old_level = intr_disable();
   curr = thread_current ();
-  
-  curr->wakeup_tick = timer_ticks() + ticks;
+
+  curr->wakeup_tick = start + ticks;
 
   // Add current thread to sleep_list in ordered. (least is front)
   list_insert_ordered(&sleep_list, &curr->elem, less_wakeup_tick, NULL);
@@ -206,6 +209,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
     e = list_front(&sleep_list); //minumum of wakeup_tick
     t = list_entry(e, struct thread, elem);
 
+  //Because sleep_list is ordered, so we just check whether front
+  //wakeup_tick is earlier than ticks(absolute).
     if(t->wakeup_tick > ticks)
       return;
     

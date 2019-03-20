@@ -141,6 +141,6 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-//bool less_wakeup_tick (struct list_elem *e1, struct list_elem *e2, void *aux);
+bool less_wakeup_tick (struct list_elem *e1, struct list_elem *e2, void *aux UNUSED);
 //bool prior_thread (struct list_elem *e1, struct list_elem *e2, void *aux);
 #endif /* threads/thread.h */
