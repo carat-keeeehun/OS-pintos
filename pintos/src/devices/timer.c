@@ -95,7 +95,8 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  /*int64_t start = timer_ticks ();
+  /* original code (Busy waiting)
+  int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
 
@@ -109,9 +110,11 @@ timer_sleep (int64_t ticks)
 
   ASSERT (intr_get_level () == INTR_ON);
 
+  //block the interrupt by using intr_disable()
   old_level = intr_disable();
   curr = thread_current ();
 
+  //Save the wakeup time of current thread
   curr->wakeup_tick = start + ticks;
 
   // Add current thread to sleep_list in ordered. (least is front)

@@ -28,13 +28,6 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
-
-// *********** List for sleeping list, which never be scheduled.
-//static struct list sleep_list;
-// *********** variable for minimum tick in sleep_list
-//static int64_t minimum_tick;
-
-
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -187,7 +180,8 @@ thread_create (const char *name, int priority,
   if (t == NULL)
     return TID_ERROR;
 
-  /* Initialize thread. */
+  /* Initialize thread. 
+     Set also priority */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
@@ -216,7 +210,8 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  //check_priority();
+  // Compare priority with current running thread.
+  check_priority();
 
   return tid;
 }
@@ -255,8 +250,10 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
 
-  list_push_back (&ready_list, &t->elem);
-  //list_insert_ordered (&ready_list, &t->elem, prior_thread, 0);
+  // list_push_back (&ready_list, &t->elem);
+  // To use thread's priority, we should order the ready_list with priority.
+  list_insert_ordered (&ready_list, &t->elem, prior_thread, 0);
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -327,63 +324,13 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    list_push_back (&ready_list, &cur->elem);
-    //list_insert_ordered (&ready_list, &cur->elem, prior_thread, 0);
+    //list_push_back (&ready_list, &cur->elem);
+    //Also order the ready list with priority.
+    list_insert_ordered (&ready_list, &cur->elem, prior_thread, 0);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
 }
-
-/*
-// **************** thread_sleep ******************
-// Sleeps current thread and add it to sleep_list
-void
-thread_sleep (int64_t wt)
-{
-  struct thread *cur = thread_current ();
-  enum intr_level old_level;
-
-  old_level = intr_disable(); // off the interrupt and store previous interrupt
-
-  // set the minimum value of wticks.
-  cur->wakeup_tick = wt;
-  
-  list_insert_ordered(&sleep_list, &cur->elem, less_wakeup_tick, NULL);
-
-  // make current thread blocked.
-  thread_block();
-
-  intr_set_level(old_level); // on the interrupt again
-}
-
-/ ***************** min_tick ******************
-//   Among sleeping threads, update the minimum value of wticks.
-void
-min_tick(int64_t wticks)
-{
-  if(minimum_tick > wticks) minimum_tick = wticks;
-}
-// Return the value of min_tick. In timer.c, it refer to only thread.h,
-// not thread.c, so we should using these two function*
-int64_t
-get_min_tick(void)
-{
-  return minimum_tick;
-}*/
-
-/*/ ******************* thread_wakeup *******************
-//  Wakes up thread in sleep_list which has min_tick *
-void
-thread_wakeup (int64_t tick)
-{
-  while(!list_empty(&sleep_list))
-  {
-    if(tick>=(list_entry(list_front(&sleep_list),struct thread, elem)
-       ->wakeup_tick)){ thread_unblock(list_entry(list_pop_front(&sleep_list),
-       struct thread, elem));}
-    else{break;}
-  }
-}*/
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
@@ -407,7 +354,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  //check_priority();
+  check_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -653,7 +600,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 /* To use list_insert_ordered function, I make a list_less_function below,
    which is boolean function and notifies what is less value. */
 
-
+// This function is for using list_insert_ordered (find earlier wakeup tick)
 bool less_wakeup_tick(struct list_elem *e1, struct list_elem *e2, void *aux)
 {
   struct thread *t1 = list_entry (e1, struct thread, elem);
@@ -662,7 +609,8 @@ bool less_wakeup_tick(struct list_elem *e1, struct list_elem *e2, void *aux)
   if(t1->wakeup_tick < t2->wakeup_tick) return 1;
   return 0;
 }
-/*
+
+// This function is for using list_insert_ordered (find higher priority)
 bool prior_thread(struct list_elem *e1, struct list_elem *e2, void *aux)
 {
   struct thread *t1 = list_entry(e1, struct thread, elem);
@@ -672,10 +620,22 @@ bool prior_thread(struct list_elem *e1, struct list_elem *e2, void *aux)
   else return 0;
 }
 
+// Compare priority of current thread with priority of front of ready list.
+// ( ready list is already ordered with priority )
 void check_priority(void)
 {
-  if(!list_empty (&ready_list) &&
-     thread_current() -> priority <
-     list_entry(list_front(&ready_list), struct thread, elem)->priority){
-    thread_yield();}
-}*/
+  struct list_elem *e;
+  struct thread *t;
+
+  if(!list_empty(&ready_list))
+  {
+    e = list_front(&ready_list);
+    t = list_entry(e, struct thread, elem);
+    // If priority of current thread is low, then yield the CPU.
+    if(t->priority > thread_current()->priority)
+      thread_yield();
+  }
+}
+
+
+
