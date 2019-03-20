@@ -125,7 +125,7 @@ sema_up (struct semaphore *sema)
   }
   sema->value++;
   intr_set_level (old_level);
-
+  //Consider the preemption.
   thread_yield ();
 }
 
@@ -205,8 +205,16 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  //First at all, block the interrupt with intr_disable();
+  //enum intr_level old_level; 
+
+
+
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+
+  //retrieve interrupt
+  //intr_set_level(old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -304,7 +312,10 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
+
+  //I need to arrange waiters list of cond in order wth priority.
   list_push_back (&cond->waiters, &waiter.elem);
+  //list_insert_ordered (&cond->waiters, &waiter.elem, prior_thread, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
