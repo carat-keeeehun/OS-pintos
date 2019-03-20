@@ -24,6 +24,9 @@ static int64_t ticks;
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
+// list for blocked thread (sleeping thread)
+struct list sleep_list;
+
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
@@ -37,6 +40,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init (&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,30 +93,30 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
+  /*int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
 
   while (timer_elapsed (start) < ticks) 
-    thread_yield ();
-  /*
-  struct thread *cur;
+    thread_yield ();*/
+  
+  struct thread *curr;
   enum intr_level old_level;
-
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
 
-  cur = thread_current();
   old_level = intr_disable();
+  curr = thread_current ();
+  
+  curr->wakeup_tick = timer_ticks() + ticks;
 
-  cur->wakeup_tick = start + ticks;
-
-  list_insert_ordered(&sleep_list, &cur->elem, less_wakeup_tick, NULL);
+  // Add current thread to sleep_list in ordered. (least is front)
+  list_insert_ordered(&sleep_list, &curr->elem, less_wakeup_tick, NULL);
 
   thread_block();
 
-  intr_set_level(old_level);*/
+  intr_set_level(old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -189,23 +193,25 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  //struct list_elem *e;
-  //struct thread *t;
+  struct list_elem *e;
+  struct thread *t;
 
   ticks++;
   thread_tick ();
-  //thread_wakeup(ticks);
-/*
+
+  //Whenever get the interrupt, we should check the sleep_list.
+  //And front of sleep_list has least wakeup_tick.
   while(!list_empty(&sleep_list))
   {
-    e = list_front(&sleep_list);
-    t = list_entry(list_front(&sleep_list), struct thread, elem);
+    e = list_front(&sleep_list); //minumum of wakeup_tick
+    t = list_entry(e, struct thread, elem);
 
-    if(t->wakeup_tick > ticks) break;
-    else{
-      list_remove(e);
-      thread_unblock(t);}
-  }*/
+    if(t->wakeup_tick > ticks)
+      return;
+    
+    list_remove(e);
+    thread_unblock(t);
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
