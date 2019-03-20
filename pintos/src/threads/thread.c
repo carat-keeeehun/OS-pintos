@@ -30,7 +30,7 @@ static struct list all_list;
 
 
 // *********** List for sleeping list, which never be scheduled.
-static struct list sleep_list;
+//static struct list sleep_list;
 // *********** variable for minimum tick in sleep_list
 //static int64_t minimum_tick;
 
@@ -99,8 +99,6 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  // add sleep_list initialization
-  list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -218,7 +216,7 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  check_priority();
+  //check_priority();
 
   return tid;
 }
@@ -257,8 +255,8 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
 
-  //list_push_back (&ready_list, &t->elem);
-  list_insert_ordered (&ready_list, &t->elem, prior_thread, 0);
+  list_push_back (&ready_list, &t->elem);
+  //list_insert_ordered (&ready_list, &t->elem, prior_thread, 0);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -329,13 +327,14 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    //list_push_back (&ready_list, &cur->elem);
-    list_insert_ordered (&ready_list, &cur->elem, prior_thread, 0);
+    list_push_back (&ready_list, &cur->elem);
+    //list_insert_ordered (&ready_list, &cur->elem, prior_thread, 0);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
 }
 
+/*
 // **************** thread_sleep ******************
 // Sleeps current thread and add it to sleep_list
 void
@@ -357,7 +356,7 @@ thread_sleep (int64_t wt)
   intr_set_level(old_level); // on the interrupt again
 }
 
-/* ***************** min_tick ******************
+/ ***************** min_tick ******************
 //   Among sleeping threads, update the minimum value of wticks.
 void
 min_tick(int64_t wticks)
@@ -372,7 +371,7 @@ get_min_tick(void)
   return minimum_tick;
 }*/
 
-// ******************* thread_wakeup *******************
+/*/ ******************* thread_wakeup *******************
 //  Wakes up thread in sleep_list which has min_tick *
 void
 thread_wakeup (int64_t tick)
@@ -384,7 +383,7 @@ thread_wakeup (int64_t tick)
        struct thread, elem));}
     else{break;}
   }
-}
+}*/
 
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
@@ -408,7 +407,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  check_priority();
+  //check_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -654,6 +653,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 /* To use list_insert_ordered function, I make a list_less_function below,
    which is boolean function and notifies what is less value. */
 
+/*
 bool less_wakeup_tick(struct list_elem *e1, struct list_elem *e2, void *aux)
 {
   struct thread *t1 = list_entry(e1, struct thread, elem);
@@ -678,4 +678,4 @@ void check_priority(void)
      thread_current() -> priority <
      list_entry(list_front(&ready_list), struct thread, elem)->priority){
     thread_yield();}
-}
+}*/

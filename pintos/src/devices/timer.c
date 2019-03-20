@@ -20,8 +20,6 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
-//static struct list sleep_list;
-
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -39,7 +37,6 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  //list_init(&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -96,11 +93,9 @@ timer_sleep (int64_t ticks)
 
   ASSERT (intr_get_level () == INTR_ON);
 
-  thread_sleep(start + ticks);
-
-  /*while (timer_elapsed (start) < ticks) 
+  while (timer_elapsed (start) < ticks) 
     thread_yield ();
-
+  /*
   struct thread *cur;
   enum intr_level old_level;
 
@@ -199,7 +194,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
   ticks++;
   thread_tick ();
-  thread_wakeup(ticks);
+  //thread_wakeup(ticks);
 /*
   while(!list_empty(&sleep_list))
   {

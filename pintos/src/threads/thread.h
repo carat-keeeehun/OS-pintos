@@ -116,13 +116,6 @@ void thread_start (void);
 void thread_tick (void);
 void thread_print_stats (void);
 
-// **********************************************************
-void thread_sleep(int64_t wt);
-//void min_tick(int64_t wticks);
-//int64_t get_min_tick(void);
-void thread_wakeup(int64_t tick);
-// **********************************************************
-
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
@@ -148,6 +141,6 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-bool less_wakeup_tick (struct list_elem *e1, struct list_elem *e2, void *aux);
-bool prior_thread (struct list_elem *e1, struct list_elem *e2, void *aux);
+//bool less_wakeup_tick (struct list_elem *e1, struct list_elem *e2, void *aux);
+//bool prior_thread (struct list_elem *e1, struct list_elem *e2, void *aux);
 #endif /* threads/thread.h */
