@@ -88,7 +88,8 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  while(1)
+    thread_yield();
 }
 
 /* Free the current process's resources. */
@@ -213,8 +214,27 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
-  int i;
+  int i, j;
 
+  //approximate value, 40 in argv due to cmdline(128byte)
+  int argc = 0;
+  char *argv[40];
+
+  //Break the command into words
+  char *token, *sptr;
+
+  for(token = strtok_r(file_name, " ", &sptr); token!=NULL;
+        token = strtok_r(NULL, " ", &sptr))
+  {
+    argv[argc] = token;
+    argc++;
+    printf("argc = %d\n", argc);
+  }
+
+  for(i = 0; i<argc; i++)
+    printf("argv[%d] = %s\n", i, argv[i]);
+  printf("argv[%d] = %s\n", argc, argv[argc]);
+    
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -222,7 +242,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (argv[0]);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -238,7 +258,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", argv[0]);
       goto done; 
     }
 
@@ -304,6 +324,40 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
+
+  // Push arguments in the stack <rignt-to-left>
+  for(j = argc-1; j>=0; j--)
+  {
+    *esp = *esp - strlen(argv[j]+1);
+    memcpy(*esp, argv[j], strlen(argv[j]+1));
+  }
+
+  // Align 4 bytes before pushing addresses
+  while( ((int)*esp)%4 != 0 )
+    *esp = *esp-1;
+
+  // Make last argument null
+  *esp = *esp - 4;
+  *(int *)(*esp) = 0;
+
+  // Push pointers to argument strings
+  for(j = argc-1; j>=0; j--)
+  {
+    *esp = *esp - 4;
+    memcpy(*esp, &argv[j], 4);
+  }
+
+  *esp = *esp - 4;
+  memcpy(*esp, *esp + 4, 4);
+
+  // Push number of arguments (argc).
+  *esp = *esp - 4;
+  memcpy(*esp, &argc, 4);
+
+  // Push a fake "return address"
+  *esp = *esp - 4;
+  *(int *)(*esp) = 0; 
+
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;

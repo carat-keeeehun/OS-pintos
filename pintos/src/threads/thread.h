@@ -102,7 +102,7 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
 
     // tick for thread to wake up
-    int64_t wakeup_tick;
+    //int64_t wakeup_tick;
   };
 
 /* If false (default), use round-robin scheduler.

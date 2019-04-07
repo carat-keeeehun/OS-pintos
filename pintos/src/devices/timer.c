@@ -95,21 +95,15 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  /* original code (Busy waiting)
+  //struct thread *curr;
+  //enum intr_level old_level;
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
 
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
-  */
-
-  struct thread *curr;
-  enum intr_level old_level;
-  int64_t start = timer_ticks ();
-
-  ASSERT (intr_get_level () == INTR_ON);
-
+  while(timer_elapsed(start) < ticks)
+    thread_yield();
+/*
   //block the interrupt by using intr_disable()
   old_level = intr_disable();
   curr = thread_current ();
@@ -122,7 +116,7 @@ timer_sleep (int64_t ticks)
 
   thread_block();
 
-  intr_set_level(old_level);
+  intr_set_level(old_level);*/
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -199,14 +193,15 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  struct list_elem *e;
-  struct thread *t;
-
+  //struct list_elem *e;
+  //struct thread *t;
+//	printf("In timer_interrupt\n");
   ticks++;
   thread_tick ();
 
   //Whenever get the interrupt, we should check the sleep_list.
   //And front of sleep_list has least wakeup_tick.
+/*  
   while(!list_empty(&sleep_list))
   {
     e = list_front(&sleep_list); //minumum of wakeup_tick
@@ -219,7 +214,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
     
     list_remove(e);
     thread_unblock(t);
-  }
+  }*/
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
