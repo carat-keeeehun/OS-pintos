@@ -328,8 +328,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   // Push arguments in the stack <rignt-to-left>
   for(j = argc-1; j>=0; j--)
   {
-    *esp = *esp - strlen(argv[j]+1);
-    memcpy(*esp, argv[j], strlen(argv[j]+1));
+    *esp = *esp - (strlen(argv[j])+1);
+    memcpy(*esp, argv[j], strlen(argv[j])+1);
   }
 
   // Align 4 bytes before pushing addresses
@@ -357,6 +357,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   // Push a fake "return address"
   *esp = *esp - 4;
   *(int *)(*esp) = 0; 
+
+  hex_dump(*esp, *esp, 100, 1);
 
 
   /* Start address. */
@@ -491,7 +493,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE-12;
       else
         palloc_free_page (kpage);
     }
