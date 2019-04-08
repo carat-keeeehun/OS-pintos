@@ -103,6 +103,10 @@ struct thread
 
     // tick for thread to wake up
     //int64_t wakeup_tick;
+
+    // File list
+    struct list file_list;
+    int f_num;
   };
 
 /* If false (default), use round-robin scheduler.
