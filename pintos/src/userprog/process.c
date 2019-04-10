@@ -40,6 +40,7 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -60,7 +61,6 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -223,18 +223,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
   //Break the command into words
   char *token, *sptr;
 
-  for(token = strtok_r(file_name, " ", &sptr); token!=NULL;
+  for(token = strtok_r((char*)file_name, " ", &sptr); token!=NULL;
         token = strtok_r(NULL, " ", &sptr))
   {
     argv[argc] = token;
     argc++;
-    printf("argc = %d\n", argc);
+    //printf("argc = %d\n", argc);
   }
-
+  /*
   for(i = 0; i<argc; i++)
     printf("argv[%d] = %s\n", i, argv[i]);
   printf("argv[%d] = %s\n", argc, argv[argc]);
-    
+ */   
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -358,7 +358,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *esp = *esp - 4;
   *(int *)(*esp) = 0; 
 
-  hex_dump(*esp, *esp, 100, 1);
+  //hex_dump(*esp, *esp, 100, 1);
 
 
   /* Start address. */

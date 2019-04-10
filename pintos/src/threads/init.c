@@ -282,11 +282,9 @@ static void
 run_task (char **argv)
 {
   const char *task = argv[1];
-  //const char *task2 = argv[2];
-  //const char *task0 = argv[0];
+
   printf ("Executing '%s':\n", task);
-  //printf ("[2] '%s':\n", task2);
-  //printf ("[0] : '%s':\n", task0);
+
 #ifdef USERPROG
   process_wait (process_execute (task));
 #else
