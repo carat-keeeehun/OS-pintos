@@ -23,12 +23,12 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  printf ("system call!\n");
+  //printf ("system call!\n");
 
   is_valid_ptr(f->esp);
 
   //int sc_num = *(int*)f->esp;
-  printf ("syscall number : %d\n", *(int*)f->esp);
+  //printf ("syscall number : %d\n", *(int*)f->esp);
 
   switch(*(int*)f->esp)
   {
@@ -71,7 +71,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	break;
 
     case SYS_READ:		// 8.  3
-    {printf("************SYS_READ*************\n");
+    {//printf("************SYS_READ*************\n");
 	int fd = *((int*)f->esp+5);
 	void *buffer = (void*)(*((int*)f->esp+6));
 	unsigned size = *((unsigned*)f->esp+7);
@@ -80,7 +80,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	break;
     }
     case SYS_WRITE:		// 9. 3
-    {printf("************SYS_WRITE************\n");
+    {//printf("************SYS_WRITE************\n");
 	int fd = *((int*)f->esp+5);
 	const void *buffer = (const void*)(*((int*)f->esp+6));
 	unsigned size = *((unsigned*)f->esp+7);

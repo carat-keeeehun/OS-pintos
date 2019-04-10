@@ -214,11 +214,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
-  int i, j;
+  int i, j, word_align;
 
   //approximate value, 40 in argv due to cmdline(128byte)
   int argc = 0;
   char *argv[40];
+  char *argv_;
 
   //Break the command into words
   char *token, *sptr;
@@ -330,15 +331,22 @@ load (const char *file_name, void (**eip) (void), void **esp)
   {
     *esp = *esp - (strlen(argv[j])+1);
     memcpy(*esp, argv[j], strlen(argv[j])+1);
+    argv[j] = *esp;
   }
-
+  
   // Align 4 bytes before pushing addresses
-  while( ((int)*esp)%4 != 0 )
-    *esp = *esp-1;
+
+  word_align = ((int)(*esp))&0x0000000f;
+
+  while(word_align%4 != 0)
+  {
+    *esp = *esp - 1;
+    word_align = ((int)(*esp))&0x0000000f;
+  }
 
   // Make last argument null
   *esp = *esp - 4;
-  *(int *)(*esp) = 0;
+  memset(*esp, 0, 4);
 
   // Push pointers to argument strings
   for(j = argc-1; j>=0; j--)
@@ -347,17 +355,16 @@ load (const char *file_name, void (**eip) (void), void **esp)
     memcpy(*esp, &argv[j], 4);
   }
 
+  // Push pointers to argument strings(argv)
+  argv_ = *esp;
   *esp = *esp - 4;
-  memcpy(*esp, *esp + 4, 4);
-
+  memcpy(*esp, &argv_, 4);
   // Push number of arguments (argc).
   *esp = *esp - 4;
   memcpy(*esp, &argc, 4);
-
   // Push a fake "return address"
   *esp = *esp - 4;
   *(int *)(*esp) = 0; 
-
   //hex_dump(*esp, *esp, 100, 1);
 
 
