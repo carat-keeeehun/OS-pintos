@@ -152,7 +152,7 @@ process_wait (tid_t child_tid UNUSED)
 //if(pt->status != 0)
 //printf("After down, [%s] s-value : %d\n", child_thread->name, child_thread->sema.value);
 //printf("       exit_status : %d\n", pt->child_exit_status);
-  return pt->child_exit_status;
+  return child_thread->exit_status;
 }
 
 /* Free the current process's resources. */

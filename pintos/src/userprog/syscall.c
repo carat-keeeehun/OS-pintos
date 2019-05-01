@@ -63,8 +63,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CREATE:		// 4.  2
     {
-	char *file_ = (char*)(*((int*)f->esp+3));
-	unsigned initial_size = *((unsigned*)f->esp+4);
+	char *file_ = (char*)(*((int*)f->esp+4));
+	unsigned initial_size = *((unsigned*)f->esp+5);
 //printf("***********SYS_CREATE***********\n");
 //printf("file : %s\n", *file_);
 //printf("initial_size : %d\n", initial_size);
@@ -172,14 +172,15 @@ void exit (int status)
   if(t->parent != NULL)
   {
     //printf("       It has parent[%s]\n", t->parent->name);
-    t->parent->child_exit_status = status;
+    t->exit_status = status;
     t->parent->c_num--;
     list_remove(&t->c_elem);
   }
-//else
+  else
+    t->exit_status = status;
   //printf("       It has no parent.\n");
 
-printf("%s: exit(%d)\n", t->name, t->parent->child_exit_status);
+printf("%s: exit(%d)\n", t->name, t->exit_status);
   // Frees all resources && Remove this child_thread.
   thread_exit();
 }
@@ -211,13 +212,12 @@ int open (const char *file)
 
   if(f==NULL)
   {
-    printf("Fail to open the file.\n");
+//    printf("Fail to open the file.\n");
     return -1;
   }
-
   else
   {
-    printf("Success to open the file.\n");
+//    printf("Success to open the file.\n");
     int fd = add_filelist(f);
     return fd;
   }

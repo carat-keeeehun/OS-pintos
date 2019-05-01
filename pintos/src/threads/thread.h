@@ -110,7 +110,7 @@ struct thread
     struct thread *parent;
 
     struct semaphore sema;
-    enum thread_status child_exit_status;
+    enum thread_status exit_status;
 #endif
 
     /* Owned by thread.c. */
