@@ -28,8 +28,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   is_valid_ptr(f->esp);
 
   //int sc_num = *(int*)f->esp;
-  //printf ("syscall number : %d\n", *(int*)f->esp);
-
+//  printf ("#####   syscall number : %d\n", *(int*)f->esp);
+//  printf ("#####   [%s] status : %d\n", thread_current()->name, thread_current()->status);
   switch(*(int*)f->esp)
   {
     case SYS_HALT:		// 0.  0
@@ -39,27 +39,45 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXIT:		// 1.  1
     {
 	int status = *((int*)f->esp+1);
-
+//	printf("***********SYS_EXIT***********\n");
 	exit(status);
+//printf("finish of exit function\n");
 	break;
     }
     case SYS_EXEC:		// 2.  1
-	break;
+    {
+	char *cmd_line = (char*)(*((int*)f->esp+1));
+//	printf("***********SYS_EXEC***********\n");
+//	printf("cmd_line : %s\n", cmd_line);
 
+	f->eax = exec(cmd_line);
+	break;
+    }
     case SYS_WAIT:		// 3.  1
-	break;
+    {
+	pid_t pid = (pid_t*)(*((int*)f->esp+1));
+//	printf("***********SYS_WAIT***********\n");
+	wait(pid);
 
+	break;
+    }
     case SYS_CREATE:		// 4.  2
     {
 	char *file_ = (char*)(*((int*)f->esp+3));
 	unsigned initial_size = *((unsigned*)f->esp+4);
-
+//printf("***********SYS_CREATE***********\n");
+//printf("file : %s\n", *file_);
+//printf("initial_size : %d\n", initial_size);
 	f->eax = create(file_, initial_size);
 	break;
     }
     case SYS_REMOVE:		// 5.  1
-	break;
+    {
+	//char *file_ = (char*)(*((int*)f->esp+1));
+//	printf("***********SYS_REMOVE***********\n");
 
+	break;
+    }
     case SYS_OPEN:		// 6.  1
     {
 	char *file_ = (char*)(*((int*)f->esp+1));
@@ -68,8 +86,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 	break;
     }
     case SYS_FILESIZE:		// 7.  1
-	break;
+    {
+	//int fd = *((int*)f->esp+1);
+//	printf("***********SYS_FILESIZE***********\n");
 
+	break;
+    }
     case SYS_READ:		// 8.  3
     {//printf("************SYS_READ*************\n");
 	int fd = *((int*)f->esp+5);
@@ -89,13 +111,25 @@ syscall_handler (struct intr_frame *f UNUSED)
 	break;
     }
     case SYS_SEEK:		// 10. 2
-	break;
+    {
+	//int fd = *((int*)f->esp+5);
+	//unsigned position = *((unsigned*)f->esp+7);
+//	printf("***********SYS_SEEK***********\n");
 
+	break;
+    }
     case SYS_TELL:		// 11. 1
+    {
+	//int fd = *((int*)f->esp+1);
+//	printf("***********SYS_TELL***********\n");
 	break;
-
+    }
     case SYS_CLOSE:		// 12. 1
+    {
+	//int fd = *((int*)f->esp+1);
+//	printf("***********SYS_CLOSE***********\n");
 	break;
+    }
   }
 
   //thread_exit ();
@@ -110,24 +144,55 @@ void halt (void)
 void exit (int status)
 {
   struct thread *t = thread_current();
+  struct thread *ct;
   struct list_elem *e;
   struct fd_file *ff;
-
+  
   // Close all files in file_list of thread
-  while(!list_empty(&t->file_list))
+//printf("[%s] f_num = %d\n", t->name, t->f_num);
+  if(t->f_num != 0)
   {
-    e = list_front(&t->file_list);
-    ff = list_entry(e, struct fd_file, elem);
-
-    file_close(ff->file_);
-    list_remove(e);
-  }  
+    while(!list_empty(&t->file_list))
+    {
+      e = list_front(&t->file_list);
+      ff = list_entry(e, struct fd_file, elem);
+      file_close(ff->file_);
+      list_remove(e);
+    }
+  }
 
   // Returning status??
-  printf("<< %s >> exit with status << %d >>!!\n", t->name, status); 
+  //printf("'%s' exit with status [%d]\n", t->name, t->status);
+//printf("------ In exit function ------\n");
+//printf("       Before removed, child's parent : %s\n",  t->parent->name);
+  // Remove itself as parent, so it makes its children orphan.
+//printf("[%s] c_num = %d\n", t->name, t->c_num);
 
-  // process_exit() frees all resources. But will entire process be off..?
-  process_exit();
+  // It is removed in child_list of parent.
+  if(t->parent != NULL)
+  {
+    //printf("       It has parent[%s]\n", t->parent->name);
+    t->parent->child_exit_status = status;
+    t->parent->c_num--;
+    list_remove(&t->c_elem);
+  }
+//else
+  //printf("       It has no parent.\n");
+
+printf("%s: exit(%d)\n", t->name, t->parent->child_exit_status);
+  // Frees all resources && Remove this child_thread.
+  thread_exit();
+}
+
+pid_t exec (const char *cmd_line)
+{
+  //printf("In exec syscall\n");
+  return process_execute(cmd_line);
+}
+
+int wait (pid_t pid)
+{
+  return process_wait(pid);
 }
 
 // Just using function in filesys, create file.

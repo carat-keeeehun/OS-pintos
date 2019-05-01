@@ -94,7 +94,6 @@ lookup (const struct dir *dir, const char *name,
 {
   struct dir_entry e;
   size_t ofs;
-  
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
@@ -120,7 +119,6 @@ dir_lookup (const struct dir *dir, const char *name,
             struct inode **inode) 
 {
   struct dir_entry e;
-
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
@@ -144,7 +142,6 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   struct dir_entry e;
   off_t ofs;
   bool success = false;
-
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 

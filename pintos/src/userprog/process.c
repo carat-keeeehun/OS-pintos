@@ -17,10 +17,14 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+static void find_child (struct thread *t, void *aux UNUSED);
+static struct thread *child_thread;
+static tid_t child_tid;
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -36,13 +40,45 @@ process_execute (const char *file_name)
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
+//printf("in process.c\n");
+//printf("file_name [%s]\n", file_name);
   strlcpy (fn_copy, file_name, PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
+  // Where to go this created thread??
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
 
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (fn_copy);
+  // To add new thread(tid) to child_list,
+  // Find corresponding child thread in all_list -> foreach function
+  else
+  {
+    // Store tid into static child_tid.
+    child_tid = tid;
+
+    // For using thread_foreach, I should disable interrupts.
+    enum intr_level old_level = intr_disable();
+
+    // Find the corresponding thread with child_tid.
+    thread_foreach(*find_child, NULL);
+    child_thread->parent = thread_current();
+    list_push_back(&thread_current()->child_list, &child_thread->c_elem);
+    thread_current()->c_num++;
+    intr_set_level (old_level);
+/*printf("-----In process_execute,-----\n");
+printf("     thread name : %s\n", thread_current()->name);
+printf("     thread s-value : %d\n", thread_current()->sema.value);
+printf("     child name : %s\n", child_thread->name);
+printf("     child s-value : %d\n", child_thread->sema.value);
+printf("     thread status : %d\n", thread_current()->status);
+printf("     child's c_num : %d\n", child_thread->c_num);
+printf("     thread's c_num : %d\n", thread_current()->c_num);
+if(child_thread->c_num!=0)
+printf("     child has child\n"); 
+printf("     parent of child : %s\n", child_thread->parent->name);
+printf("-----------------------------\n");
+*/  }
   return tid;
 }
 
@@ -88,8 +124,35 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(1)
-    thread_yield();
+  struct thread *pt = thread_current();
+//printf("-------In process_wait-------\n");
+//printf("       thread name : %s\n", pt->name);
+//printf("       child name : %s\n", child_thread->name);
+
+  if(pt->c_num == 0 || child_thread->parent==NULL)
+  { // In case that parent has no child,or child is orphan.
+//    printf("<process_wait>[%s] c_num = %d\n", pt->name, pt->c_num);
+//    printf("<process_wait>[%s] has no child.\n", pt->name);
+    return -1;
+  }
+
+  if(pt->tid != child_thread->parent->tid)
+  { // In case that it is not child of parent.
+//    printf("<process_wait>[%s] is not parent of this child.\n", pt->name);
+    return -1;
+  }
+
+//printf("***  [%s] status : %d  ***\n", pt->name, pt->status);
+//if(pt->status != 0)
+//printf("***  [%s] status : %d  ***\n", child_thread->name, child_thread->status);
+//printf("Before down, [%s] s-value : %d\n", pt->name, pt->sema.value);
+//printf("Before down, [%s] s-value : %d\n", child_thread->name, child_thread->sema.value);
+  sema_down(&child_thread->sema);
+//printf("After down, [%s] s-value : %d\n", pt->name, pt->sema.value);
+//if(pt->status != 0)
+//printf("After down, [%s] s-value : %d\n", child_thread->name, child_thread->sema.value);
+//printf("       exit_status : %d\n", pt->child_exit_status);
+  return pt->child_exit_status;
 }
 
 /* Free the current process's resources. */
@@ -229,13 +292,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   {
     argv[argc] = token;
     argc++;
-    //printf("argc = %d\n", argc);
+  //  printf("argc = %d\n", argc);
   }
-  /*
+/*
   for(i = 0; i<argc; i++)
     printf("argv[%d] = %s\n", i, argv[i]);
   printf("argv[%d] = %s\n", argc, argv[argc]);
- */   
+*/    
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -525,4 +588,15 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+// This function is only for using thread_foreach to find child who has child_tid
+static void
+find_child (struct thread *t, void *aux UNUSED)
+{
+  if(child_tid == t->tid)
+  {
+    child_thread = t;
+    sema_init(&child_thread->sema, 0);
+  }
 }

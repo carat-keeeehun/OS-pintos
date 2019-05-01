@@ -65,6 +65,9 @@ sema_down (struct semaphore *sema)
   ASSERT (sema != NULL);
   ASSERT (!intr_context ());
 
+//  printf("------ In sema_down ------\n");
+//  printf("       [%s] value : %d\n", thread_current()->name, sema->value);
+
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
@@ -76,6 +79,7 @@ sema_down (struct semaphore *sema)
       thread_block ();
     }
   sema->value--;
+//  printf("       [%s] value : %d\n", thread_current()->name, sema->value);
   intr_set_level (old_level);
 }
 

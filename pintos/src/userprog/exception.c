@@ -143,8 +143,8 @@ page_fault (struct intr_frame *f)
 
   /* Count page faults. */
   page_fault_cnt++;
-printf("current thread : %s\n", thread_current()->name);
-printf("page_fault_cnt : %d\n", page_fault_cnt);
+printf("------In Page_fault------\n");
+printf("      Current thread : %s\n", thread_current()->name);
   /* Determine cause. */
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
