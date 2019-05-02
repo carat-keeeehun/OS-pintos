@@ -60,8 +60,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 	is_valid_ptr(f->esp+1);
 	pid_t pid = (pid_t*)(*((int*)f->esp+1));
 //	printf("***********SYS_WAIT***********\n");
-	wait(pid);
 
+	f->eax = wait(pid);
 	break;
     }
     case SYS_CREATE:		// 4.  2
@@ -181,6 +181,10 @@ void exit (int status)
     }
   }
 
+//  printf("[%s] c_num = %d\n", t->name, t->c_num);
+
+//  if(t->c_num != 0)
+
   // Returning status??
   //printf("'%s' exit with status [%d]\n", t->name, t->status);
 //printf("------ In exit function ------\n");
@@ -192,15 +196,17 @@ void exit (int status)
   if(t->parent != NULL)
   {
     //printf("       It has parent[%s]\n", t->parent->name);
-    t->exit_status = status;
+    t->parent->child_exit_status = status;
     t->parent->c_num--;
     list_remove(&t->c_elem);
+    printf("%s: exit(%d)\n", t->name, t->parent->child_exit_status);
   }
   else
-    t->exit_status = status;
-  //printf("       It has no parent.\n");
+  {
+//    printf("      It has no parent\n");
+    printf("%s: exit(0)\n", t->name);
+  }
 
-printf("%s: exit(%d)\n", t->name, t->exit_status);
   // Frees all resources && Remove this child_thread.
   thread_exit();
 }
@@ -208,14 +214,16 @@ printf("%s: exit(%d)\n", t->name, t->exit_status);
 //          [2]
 pid_t exec (const char *cmd_line)
 {
-  //printf("In exec syscall\n");
+ // printf("In exec syscall\n");
   return process_execute(cmd_line);
 }
 
 //          [3]
 int wait (pid_t pid)
 {
-  return process_wait(pid);
+  int result = process_wait(pid);
+//  printf("In wait system call, return : %d\n", result);
+  return result;
 }
 
 //          [4]

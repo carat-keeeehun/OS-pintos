@@ -42,9 +42,9 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
 //printf("in process.c\n");
-//printf("file_name [%s]\n", file_name);
+//printf("file_name : %s\n", file_name);
   strlcpy (fn_copy, file_name, PGSIZE);
-
+//printf("fn_copy : %s\n", fn_copy);
   /* Create a new thread to execute FILE_NAME. */
   // Where to go this created thread??
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
@@ -72,7 +72,11 @@ printf("Empty file list\n");*/
     list_push_back(&thread_current()->child_list, &child_thread->c_elem);
     thread_current()->c_num++;
     intr_set_level (old_level);
-/*printf("-----In process_execute,-----\n");
+
+//    if(thread_current()->sema.value == 0)
+//      sema_up(&thread_current()->sema);
+/*
+printf("-----In process_execute,-----\n");
 printf("     thread name : %s\n", thread_current()->name);
 printf("     thread s-value : %d\n", thread_current()->sema.value);
 printf("     child name : %s\n", child_thread->name);
@@ -131,18 +135,38 @@ int
 process_wait (tid_t child_tid UNUSED) 
 {
   struct thread *pt = thread_current();
-//printf("-------In process_wait-------\n");
-//printf("       thread name : %s\n", pt->name);
-//printf("       child name : %s\n", child_thread->name);
+  struct thread *ct = NULL;
+  struct list_elem *e;
+/*printf("-------In process_wait-------\n");
+printf("       pt : %s\n", pt->name);
+printf("       pt->c_num : %d\n", pt->c_num);
+printf("       child_thread : %s\n", child_thread->name);
+*/
+  for(e = list_begin(&pt->child_list); e != list_end(&pt->child_list);
+      e = list_next(e))
+  {
+    struct thread *tt = list_entry(e, struct thread,c_elem);
+    if(tt->parent == pt)
+    { //printf("Find such child [%s]\n", tt->name);
+      ct = tt;
+      //printf("ct->parent : %s\n", ct->parent->name);
+    }
+  }
 
-  if(pt->c_num == 0 || child_thread->parent==NULL)
+  if(ct == NULL)
+  { // In case that cannot find corresponding child.
+    //printf("Cannot find corresponding ct\n");
+    return -1;
+  }
+
+  if(pt->c_num == 0 || ct->parent==NULL)
   { // In case that parent has no child,or child is orphan.
 //    printf("<process_wait>[%s] c_num = %d\n", pt->name, pt->c_num);
 //    printf("<process_wait>[%s] has no child.\n", pt->name);
     return -1;
   }
 
-  if(pt->tid != child_thread->parent->tid)
+  if(pt->tid != ct->parent->tid)
   { // In case that it is not child of parent.
 //    printf("<process_wait>[%s] is not parent of this child.\n", pt->name);
     return -1;
@@ -153,12 +177,12 @@ process_wait (tid_t child_tid UNUSED)
 //printf("***  [%s] status : %d  ***\n", child_thread->name, child_thread->status);
 //printf("Before down, [%s] s-value : %d\n", pt->name, pt->sema.value);
 //printf("Before down, [%s] s-value : %d\n", child_thread->name, child_thread->sema.value);
-  sema_down(&child_thread->sema);
+  sema_down(&ct->sema);
 //printf("After down, [%s] s-value : %d\n", pt->name, pt->sema.value);
 //if(pt->status != 0)
 //printf("After down, [%s] s-value : %d\n", child_thread->name, child_thread->sema.value);
-//printf("       exit_status : %d\n", pt->child_exit_status);
-  return child_thread->exit_status;
+  //printf(" pt: [%s] exit_status : %d\n", pt->name, pt->child_exit_status);
+  return pt->child_exit_status;
 }
 
 /* Free the current process's resources. */

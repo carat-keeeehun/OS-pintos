@@ -111,7 +111,7 @@ struct thread
     struct thread *parent;
 
     struct semaphore sema;
-    enum thread_status exit_status;
+    enum thread_status child_exit_status;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
