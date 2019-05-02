@@ -1,6 +1,7 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 
+#include <stdlib.h>
 #include <list.h>
 #include "lib/user/syscall.h"
 #include "threads/interrupt.h"
