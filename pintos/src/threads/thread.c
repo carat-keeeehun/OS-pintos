@@ -103,7 +103,7 @@ thread_init (void)
   list_init (&initial_thread->file_list);
   list_init (&initial_thread->child_list);
 
-  initial_thread->f_num = 0;
+  initial_thread->f_num = 1;
   initial_thread->c_num = 0;
   initial_thread->parent = NULL;
 

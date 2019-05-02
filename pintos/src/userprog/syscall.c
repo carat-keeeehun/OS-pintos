@@ -40,6 +40,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	is_valid_ptr(f->esp+1);
 	int status = *((int*)f->esp+1);
 //	printf("***********SYS_EXIT***********\n");
+//	printf("exit argument 1 : %d\n", status);
 	exit(status);
 //printf("finish of exit function\n");
 	break;
@@ -71,19 +72,20 @@ syscall_handler (struct intr_frame *f UNUSED)
 	unsigned initial_size = *((unsigned*)f->esp+5);
 //printf("***********SYS_CREATE***********\n");
 //printf("file : %s\n", *file_);
-//printf("initial_size : %d\n", initial_size);
+//printf("create initial_size : %d\n", initial_size);
 	f->eax = create(file_, initial_size);
 	break;
     }
     case SYS_REMOVE:		// 5.  1
     {
-	//char *file_ = (char*)(*((int*)f->esp+1));
+//	char *file_ = (char*)(*((int*)f->esp+1));
 //	printf("***********SYS_REMOVE***********\n");
 
+//	f->eax = remove(file_);
 	break;
     }
     case SYS_OPEN:		// 6.  1
-    {
+    {//   printf("**************SYS_OPEN*************\n");
 	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
 
@@ -92,9 +94,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_FILESIZE:		// 7.  1
     {
-	//int fd = *((int*)f->esp+1);
+	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_FILESIZE***********\n");
 
+	f->eax = filesize(fd);
 	break;
     }
     case SYS_READ:		// 8.  3
@@ -118,6 +121,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	const void *buffer = (const void*)(*((int*)f->esp+6));
 	unsigned size = *((unsigned*)f->esp+7);
 
+//printf("write argument 3-1 : %d\n", fd);
 	f->eax = write(fd, buffer, size);
 	break;
     }
@@ -148,17 +152,19 @@ syscall_handler (struct intr_frame *f UNUSED)
   //thread_exit ();
 }
 
+//          [0]
 void halt (void)
 {
   // Terminates Pintos
   shutdown_power_off();
 }
 
+//          [1]
 void exit (int status)
 {
   struct thread *t = thread_current();
-  struct thread *ct;
   struct list_elem *e;
+  //int count = 0;
   
   // Close all files in file_list of thread
 //printf("[%s] f_num = %d\n", t->name, t->f_num);
@@ -168,9 +174,10 @@ void exit (int status)
 	e = list_next(e))
     {
       struct fd_file *ff = list_entry(e, struct fd_file, elem);
+      //printf("[%d] ff->fd = %d\n", count++, ff->fd);
       file_close(ff->file_);
       list_remove(e);
-      free(ff);
+     // free(ff);
     }
   }
 
@@ -198,23 +205,33 @@ printf("%s: exit(%d)\n", t->name, t->exit_status);
   thread_exit();
 }
 
+//          [2]
 pid_t exec (const char *cmd_line)
 {
   //printf("In exec syscall\n");
   return process_execute(cmd_line);
 }
 
+//          [3]
 int wait (pid_t pid)
 {
   return process_wait(pid);
 }
 
+//          [4]
 // Just using function in filesys, create file.
 bool create (const char *file, unsigned initial_size)
 {
   return filesys_create(file, initial_size);
 }
 
+//          [5]
+//bool remove (char *file)
+//{
+//  return -1;
+//}
+
+//          [6]
 // It is different concept from making file. After open the file,
 // opened file will get the fd(index in file list in thread).
 // I make my own function, add_filelist();
@@ -225,18 +242,36 @@ int open (const char *file)
 //printf("In open, still empty\n");
   if(f==NULL)
   {
-//    printf("Fail to open the file.\n");
+    //printf("Fail to open the file.\n");
     return -1;
   }
   else
   {
-//    printf("Success to open the file.\n");
+    //printf("Success to open the file.\n");
     int fd = add_filelist(f);
 //printf("In open, fd = %d\n", fd);
     return fd;
   }
 }
 
+//          [7]
+int filesize (int fd)
+{
+  int filesize;
+
+  struct fd_file *ff = find_file(fd);
+
+  // Cannot find such file.
+  if(ff == NULL)
+    return -1;
+  else
+  {
+    filesize = file_length(ff->file_);
+    return filesize;
+  }
+}
+
+//          [8]
 // Find the file by using fd (find_file()), then read it
 // to the buffer (file_read()).
 int read (int fd, void *buffer, unsigned length)
@@ -253,15 +288,22 @@ int read (int fd, void *buffer, unsigned length)
   }
   else
   {
-    struct file *f = find_file(fd);
+    struct fd_file *ff = find_file(fd);
+
+    if(ff == NULL)
+      return -1;
+
+    struct file *f = ff->file_;
     return file_read(f, buffer, length);
   }
 }
 
+//          [9]
 // Find the file by using fd (find_file()), then write buffer
 // to that file.
 int write (int fd, const void *buffer, unsigned length)
 {
+//printf("In write, fd = %d\n", fd);
   if(fd==1) // writes to the console by using putbuf()
   {
     putbuf(buffer, length); // I don't know how to use putbuf
@@ -269,11 +311,17 @@ int write (int fd, const void *buffer, unsigned length)
   }
   else
   {
-    struct file *f = find_file(fd);
+    struct fd_file *ff = find_file(fd);
+
+    if(ff == NULL)
+      return -1;
+
+    struct file *f = ff->file_;
     return file_write(f, buffer, length);
   }
 }
 
+//          [12]
 void close (int fd)
 {
   struct thread *t = thread_current();
@@ -283,11 +331,12 @@ void close (int fd)
       e = list_next(e))
   {
     struct fd_file *ff = list_entry(e, struct fd_file, elem);
-
+//    printf("((((  %d  ))))\n", count++);
     if(ff->fd == fd)
     {//printf("Find corresponding fd : %d\n", ff->fd);
       file_close(ff->file_);
       list_remove(e);
+//printf("After remove\n");
       // Solve the problem in stuck certain test.
       free(ff);
       break;
@@ -306,7 +355,7 @@ int add_filelist (struct file *f)
   t->f_num++;
   ff->fd = t->f_num;
   ff->file_ = f;
-  
+
   // fd is increased-order, so I must use push_back
   list_push_back(&t->file_list, &ff->elem);
 //printf("ff->fd : %d\n", ff->fd);
@@ -318,19 +367,16 @@ struct file *find_file (int fd)
 {
   struct thread *t = thread_current();
   struct list_elem *e;
-  struct fd_file *ff;
 
-
-  while(!list_empty(&t->file_list))
+  for(e = list_begin(&t->file_list); e != list_end(&t->file_list);
+      e = list_next(e))
   {
-    e = list_front(&t->file_list);
-    ff = list_entry(e, struct fd_file, elem);
-
+    struct fd_file *ff =list_entry(e, struct fd_file, elem);
     if(ff->fd == fd)
-      return ff->file_;
-
-    list_next(e);
+      return ff;
   }
+
+  // In case of that cannot finding corresponding file
   return NULL;
 }
 
