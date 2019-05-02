@@ -165,6 +165,11 @@ void exit (int status)
   struct thread *t = thread_current();
   struct list_elem *e;
   //int count = 0;
+
+  // I wonder exact range of status.
+  // Why -268370093 is bad arg?
+  if(status < 0)
+    status = -1;  
   
   // Close all files in file_list of thread
 //printf("[%s] f_num = %d\n", t->name, t->f_num);
@@ -203,8 +208,8 @@ void exit (int status)
   }
   else
   {
-//    printf("      It has no parent\n");
-    printf("%s: exit(0)\n", t->name);
+    printf("      It has no parent <<< orphan child case >>> \n");
+    printf("%s: exit(-1)\n", t->name);
   }
 
   // Frees all resources && Remove this child_thread.
