@@ -137,8 +137,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CLOSE:		// 12. 1
     {
-	//int fd = *((int*)f->esp+1);
+	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_CLOSE***********\n");
+//	printf("In close, fd = %d\n", fd);
+	close(fd);
 	break;
     }
   }
@@ -157,18 +159,18 @@ void exit (int status)
   struct thread *t = thread_current();
   struct thread *ct;
   struct list_elem *e;
-  struct fd_file *ff;
   
   // Close all files in file_list of thread
 //printf("[%s] f_num = %d\n", t->name, t->f_num);
   if(t->f_num != 0)
-  {
-    while(!list_empty(&t->file_list))
+  {//printf("Close all files in file list\n");
+    for(e = list_begin(&t->file_list); e != list_end(&t->file_list);
+	e = list_next(e))
     {
-      e = list_front(&t->file_list);
-      ff = list_entry(e, struct fd_file, elem);
+      struct fd_file *ff = list_entry(e, struct fd_file, elem);
       file_close(ff->file_);
       list_remove(e);
+      free(ff);
     }
   }
 
@@ -230,6 +232,7 @@ int open (const char *file)
   {
 //    printf("Success to open the file.\n");
     int fd = add_filelist(f);
+//printf("In open, fd = %d\n", fd);
     return fd;
   }
 }
@@ -271,6 +274,27 @@ int write (int fd, const void *buffer, unsigned length)
   }
 }
 
+void close (int fd)
+{
+  struct thread *t = thread_current();
+  struct list_elem *e;
+
+  for(e = list_begin(&t->file_list); e != list_end(&t->file_list);
+      e = list_next(e))
+  {
+    struct fd_file *ff = list_entry(e, struct fd_file, elem);
+
+    if(ff->fd == fd)
+    {//printf("Find corresponding fd : %d\n", ff->fd);
+      file_close(ff->file_);
+      list_remove(e);
+      // Solve the problem in stuck certain test.
+      free(ff);
+      break;
+    }
+  }
+}
+
 
 // just add opened file to file list in thread.
 // It returns fd of this file.
@@ -295,6 +319,7 @@ struct file *find_file (int fd)
   struct thread *t = thread_current();
   struct list_elem *e;
   struct fd_file *ff;
+
 
   while(!list_empty(&t->file_list))
   {
