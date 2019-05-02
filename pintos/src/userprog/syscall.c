@@ -24,7 +24,6 @@ static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
   //printf ("system call!\n");
-
   is_valid_ptr(f->esp);
 
   //int sc_num = *(int*)f->esp;
@@ -38,6 +37,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_EXIT:		// 1.  1
     {
+	is_valid_ptr(f->esp+1);
 	int status = *((int*)f->esp+1);
 //	printf("***********SYS_EXIT***********\n");
 	exit(status);
@@ -46,6 +46,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_EXEC:		// 2.  1
     {
+	is_valid_ptr(f->esp+1);
 	char *cmd_line = (char*)(*((int*)f->esp+1));
 //	printf("***********SYS_EXEC***********\n");
 //	printf("cmd_line : %s\n", cmd_line);
@@ -55,6 +56,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_WAIT:		// 3.  1
     {
+	is_valid_ptr(f->esp+1);
 	pid_t pid = (pid_t*)(*((int*)f->esp+1));
 //	printf("***********SYS_WAIT***********\n");
 	wait(pid);
@@ -63,6 +65,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CREATE:		// 4.  2
     {
+	is_valid_ptr(f->esp+4);
+	is_valid_ptr(f->esp+5);
 	char *file_ = (char*)(*((int*)f->esp+4));
 	unsigned initial_size = *((unsigned*)f->esp+5);
 //printf("***********SYS_CREATE***********\n");
@@ -80,6 +84,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_OPEN:		// 6.  1
     {
+	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
 
 	f->eax = open(file_);
@@ -94,6 +99,9 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_READ:		// 8.  3
     {//printf("************SYS_READ*************\n");
+	is_valid_ptr(f->esp+5);
+	is_valid_ptr(f->esp+6);
+	is_valid_ptr(f->esp+7);
 	int fd = *((int*)f->esp+5);
 	void *buffer = (void*)(*((int*)f->esp+6));
 	unsigned size = *((unsigned*)f->esp+7);
@@ -103,6 +111,9 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_WRITE:		// 9. 3
     {//printf("************SYS_WRITE************\n");
+	is_valid_ptr(f->esp+5);
+	is_valid_ptr(f->esp+6);
+	is_valid_ptr(f->esp+7);
 	int fd = *((int*)f->esp+5);
 	const void *buffer = (const void*)(*((int*)f->esp+6));
 	unsigned size = *((unsigned*)f->esp+7);
@@ -207,9 +218,9 @@ bool create (const char *file, unsigned initial_size)
 // I make my own function, add_filelist();
 int open (const char *file)
 {
-  struct file *f;
-  f = filesys_open(file);
-
+  struct file *f = filesys_open(file);
+//if(list_empty(&thread_current()->file_list))
+//printf("In open, still empty\n");
   if(f==NULL)
   {
 //    printf("Fail to open the file.\n");
@@ -265,20 +276,16 @@ int write (int fd, const void *buffer, unsigned length)
 // It returns fd of this file.
 int add_filelist (struct file *f)
 {
-  struct fd_file *ff;
-  fd_file_init(ff);
-
+  struct fd_file *ff = malloc(sizeof(*ff));
   struct thread *t = thread_current();
-  
-  if(list_begin(&t->file_list)==list_end(&t->file_list))
-    t->f_num = 1;
-  else
-    t->f_num++;
 
+  t->f_num++;
   ff->fd = t->f_num;
   ff->file_ = f;
+  
   // fd is increased-order, so I must use push_back
   list_push_back(&t->file_list, &ff->elem);
+//printf("ff->fd : %d\n", ff->fd);
   return ff->fd;
 }
 
@@ -316,14 +323,4 @@ void is_valid_ptr (const void *ptr)
   if(is_kernel_vaddr(ptr))
     exit(-1);
 }
-
-// Initializes fd_file as an empty structure
-void fd_file_init (struct fd_file *fd_file)
-{
-  ASSERT (fd_file != NULL);
-  fd_file->fd = 0;
-  fd_file->elem.prev = NULL;
-  fd_file->elem.next = NULL;
-}
-
 

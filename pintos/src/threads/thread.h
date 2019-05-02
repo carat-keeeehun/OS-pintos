@@ -97,6 +97,7 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+#endif
 
     // File list
     struct list file_list;
@@ -111,7 +112,6 @@ struct thread
 
     struct semaphore sema;
     enum thread_status exit_status;
-#endif
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

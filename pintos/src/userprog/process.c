@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <list.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -63,6 +64,11 @@ process_execute (const char *file_name)
     // Find the corresponding thread with child_tid.
     thread_foreach(*find_child, NULL);
     child_thread->parent = thread_current();
+/*printf("current thread : %s\n", thread_current()->name);
+if(list_empty(&thread_current()->child_list))
+printf("Empty child list\n");
+if(list_empty(&thread_current()->file_list))
+printf("Empty file list\n");*/
     list_push_back(&thread_current()->child_list, &child_thread->c_elem);
     thread_current()->c_num++;
     intr_set_level (old_level);
@@ -598,5 +604,14 @@ find_child (struct thread *t, void *aux UNUSED)
   {
     child_thread = t;
     sema_init(&child_thread->sema, 0);
+
+    list_init(&child_thread->file_list);
+    list_init(&child_thread->child_list);
+
+    // fd 0,1 are reserved for standart I/O
+    // So we returns a new file descriptor started from 2.
+    child_thread->f_num = 1;
+    child_thread->c_num = 0;
+    child_thread->parent = NULL;
   }
 }
