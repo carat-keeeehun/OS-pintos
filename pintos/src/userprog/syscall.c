@@ -28,8 +28,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   is_valid_ptr(f->esp);
 
   //int sc_num = *(int*)f->esp;
-  printf ("#####   syscall number : %d\n", *(int*)f->esp);
-  printf ("#####   [%s] status : %d\n", thread_current()->name, thread_current()->status);
+//  printf ("#####   syscall number : %d\n", *(int*)f->esp);
+//  printf ("#####   [%s] status : %d\n", thread_current()->name, thread_current()->status);
   switch(*(int*)f->esp)
   {
     case SYS_HALT:		// 0.  0
@@ -71,9 +71,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	is_valid_ptr(f->esp+5);
 	char *file_ = (char*)(*((int*)f->esp+4));
 	unsigned initial_size = *((unsigned*)f->esp+5);
-printf("***********SYS_CREATE***********\n");
-printf("file : %s\n", file_);
-printf("create initial_size : %d\n", initial_size);
+//printf("***********SYS_CREATE***********\n");
+//printf("file : %s\n", file_);
+//printf("create initial_size : %d\n", initial_size);
 	f->eax = create(file_, initial_size);
 	break;
     }
@@ -89,7 +89,7 @@ printf("create initial_size : %d\n", initial_size);
     {//   printf("**************SYS_OPEN*************\n");
 	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
-
+//printf("file : %s\n", file_);
 	f->eax = open(file_);
 	break;
     }
@@ -236,7 +236,7 @@ int wait (pid_t pid)
 // Just using function in filesys, create file.
 bool create (const char *file, unsigned initial_size)
 {
-  if(file == NULL || initial_size <= 0)
+  if(file == NULL)
     exit(-1);
 
   return filesys_create(file, initial_size);
@@ -255,9 +255,10 @@ bool create (const char *file, unsigned initial_size)
 int open (const char *file)
 {
   struct file *f = filesys_open(file);
+
 //if(list_empty(&thread_current()->file_list))
 //printf("In open, still empty\n");
-  if(f==NULL)
+  if(file == NULL || f == NULL)
   {
     //printf("Fail to open the file.\n");
     return -1;
