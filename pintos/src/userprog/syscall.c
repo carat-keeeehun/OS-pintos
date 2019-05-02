@@ -128,16 +128,19 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_SEEK:		// 10. 2
     {
-	//int fd = *((int*)f->esp+5);
-	//unsigned position = *((unsigned*)f->esp+7);
+	int fd = *((int*)f->esp+5);
+	unsigned position = *((unsigned*)f->esp+7);
 //	printf("***********SYS_SEEK***********\n");
 
+	seek(fd, position);
 	break;
     }
     case SYS_TELL:		// 11. 1
     {
-	//int fd = *((int*)f->esp+1);
+	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_TELL***********\n");
+
+	f->eax = tell(fd);
 	break;
     }
     case SYS_CLOSE:		// 12. 1
@@ -254,17 +257,20 @@ bool create (const char *file, unsigned initial_size)
 // I make my own function, add_filelist();
 int open (const char *file)
 {
-  struct file *f = filesys_open(file);
+//  struct file *f = filesys_open(file);
 
-//if(list_empty(&thread_current()->file_list))
-//printf("In open, still empty\n");
-  if(file == NULL || f == NULL)
+  if(file == NULL)
   {
-    //printf("Fail to open the file.\n");
     return -1;
   }
   else
   {
+    struct file *f = filesys_open(file);
+    
+    if(f == NULL)
+    { //printf("Fail to filesys_open\n");
+      return -1;
+    }
     //printf("Success to open the file.\n");
     int fd = add_filelist(f);
 //printf("In open, fd = %d\n", fd);
@@ -338,6 +344,31 @@ int write (int fd, const void *buffer, unsigned length)
     return file_write(f, buffer, length);
   }
 }
+
+//          [10]
+void seek (int fd, unsigned position)
+{
+  struct fd_file *ff = find_file(fd);
+
+  if(ff == NULL);
+    exit(-1);
+
+  struct file *f = ff->file_;
+  file_seek(f, position);
+}
+
+//          [11]
+unsigned tell (int fd)
+{
+  struct fd_file *ff = find_file(fd);
+
+  if(ff == NULL);
+    exit(-1);
+
+  struct file *f = ff->file_;
+  return file_tell(f);
+}
+
 
 //          [12]
 void close (int fd)
