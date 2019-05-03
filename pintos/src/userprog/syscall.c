@@ -435,12 +435,12 @@ void is_valid_ptr (const void *ptr)
   if(ptr==NULL)
     exit(-1);
 
-  //Is it unmapped pointer?
-  if(pagedir_get_page(thread_current()->pagedir, ptr)==NULL)
+  //Is it pointing to kernel vertual memory?
+  if(is_kernel_vaddr(ptr))
     exit(-1);
 
-  //Is it pointing to kernel virtual memory?
-  if(is_kernel_vaddr(ptr))
+  //Is it unmapped pointer?
+  if(pagedir_get_page(thread_current()->pagedir, ptr)==NULL)
     exit(-1);
 }
 
