@@ -113,9 +113,7 @@ char *
 strchr (const char *string, int c_) 
 {
   char c = c_;
-
   ASSERT (string != NULL);
-
   for (;;) 
     if (*string == c)
       return (char *) string;
@@ -235,10 +233,9 @@ char *
 strtok_r (char *s, const char *delimiters, char **save_ptr) 
 {
   char *token;
-  
+  int count = 0;
   ASSERT (delimiters != NULL);
   ASSERT (save_ptr != NULL);
-
   /* If S is nonnull, start from it.
      If S is null, start from saved position. */
   if (s == NULL)
@@ -269,7 +266,7 @@ strtok_r (char *s, const char *delimiters, char **save_ptr)
       *s = '\0';
       *save_ptr = s + 1;
     }
-  else 
+  else
     *save_ptr = s;
   return token;
 }

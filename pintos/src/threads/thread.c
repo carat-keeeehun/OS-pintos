@@ -90,6 +90,8 @@ thread_init (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   lock_init (&tid_lock);
+  lock_init (&fslock);
+
   list_init (&ready_list);
   list_init (&all_list);
 
@@ -185,32 +187,35 @@ thread_create (const char *name, int priority,
   //enum intr_level old_level;
 
   ASSERT (function != NULL);
-
+//printf("11111111\n");
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     return TID_ERROR;
+//printf("22222222222\n");
 
   /* Initialize thread. 
      Set also priority */
+//printf("name : %s\n", name);
   init_thread (t, name, priority);
+//printf("12123123123123112312\n");
   tid = t->tid = allocate_tid ();
-
+//printf("333333333333\n");
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
      member cannot be observed. */
   //old_level = intr_disable ();
-
+//printf("44444444444444\n");
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
   kf->function = function;
   kf->aux = aux;
-
+//printf("555555555555\n");
   /* Stack frame for switch_entry(). */
   ef = alloc_frame (t, sizeof *ef);
   ef->eip = (void (*) (void)) kernel_thread;
-
+//printf("66666666666666\n");
   /* Stack frame for switch_threads(). */
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
@@ -491,11 +496,11 @@ init_thread (struct thread *t, const char *name, int priority)
 
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
-
+//printf("*************\n");
   // Extract only thread_name.
   char *new_name, *sptr;
   new_name = strtok_r((char*)name, " ", &sptr);
-
+//printf("000000000000\n");
   strlcpy (t->name, new_name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;

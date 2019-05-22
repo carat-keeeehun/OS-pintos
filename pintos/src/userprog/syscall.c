@@ -10,6 +10,7 @@
 #include "devices/input.h"
 #include "filesys/file.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 
@@ -74,15 +75,21 @@ syscall_handler (struct intr_frame *f UNUSED)
 //printf("***********SYS_CREATE***********\n");
 //printf("file : %s\n", file_);
 //printf("create initial_size : %d\n", initial_size);
+
+	lock_acquire(&fslock);
 	f->eax = create(file_, initial_size);
+	lock_release(&fslock);
 	break;
     }
     case SYS_REMOVE:		// 5.  1
     {
-//	char *file_ = (char*)(*((int*)f->esp+1));
+	is_valid_ptr(f->esp+1);
+	char *file_ = (char*)(*((int*)f->esp+1));
 //	printf("***********SYS_REMOVE***********\n");
 
-//	f->eax = remove(file_);
+	lock_acquire(&fslock);
+	f->eax = remove(file_);
+	lock_release(&fslock);
 	break;
     }
     case SYS_OPEN:		// 6.  1
@@ -90,7 +97,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
 //printf("file : %s\n", file_);
+
+	lock_acquire(&fslock);
 	f->eax = open(file_);
+	lock_release(&fslock);
 	break;
     }
     case SYS_FILESIZE:		// 7.  1
@@ -98,7 +108,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_FILESIZE***********\n");
 
+	lock_acquire(&fslock);
 	f->eax = filesize(fd);
+	lock_release(&fslock);
 	break;
     }
     case SYS_READ:		// 8.  3
@@ -110,7 +122,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	void *buffer = (void*)(*((int*)f->esp+6));
 	unsigned size = *((unsigned*)f->esp+7);
 
+	lock_acquire(&fslock);
 	f->eax = read(fd, buffer, size);
+	lock_release(&fslock);
 	break;
     }
     case SYS_WRITE:		// 9. 3
@@ -123,7 +137,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	unsigned size = *((unsigned*)f->esp+7);
 
 //printf("write argument 3-1 : %d\n", fd);
+	lock_acquire(&fslock);
+//printf("after lock\n");
 	f->eax = write(fd, buffer, size);
+	lock_release(&fslock);
 	break;
     }
     case SYS_SEEK:		// 10. 2
@@ -132,7 +149,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	unsigned position = *((unsigned*)f->esp+7);
 //	printf("***********SYS_SEEK***********\n");
 
+	lock_acquire(&fslock);
 	seek(fd, position);
+	lock_release(&fslock);
 	break;
     }
     case SYS_TELL:		// 11. 1
@@ -140,7 +159,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_TELL***********\n");
 
+	lock_acquire(&fslock);
 	f->eax = tell(fd);
+	lock_release(&fslock);
 	break;
     }
     case SYS_CLOSE:		// 12. 1
@@ -148,7 +169,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_CLOSE***********\n");
 //	printf("In close, fd = %d\n", fd);
+
+	lock_acquire(&fslock);
 	close(fd);
+	lock_release(&fslock);
 	break;
     }
   }
@@ -204,7 +228,7 @@ void exit (int status)
   // It is removed in child_list of parent.
   if(t->parent != NULL)
   {
-    //printf("       It has parent[%s]\n", t->parent->name);
+//    printf("       It has parent[%s]\n", t->parent->name);
     t->parent->child_exit_status = status;
     t->parent->c_num--;
     list_remove(&t->c_elem);
@@ -224,6 +248,15 @@ void exit (int status)
 pid_t exec (const char *cmd_line)
 {
  // printf("In exec syscall\n");
+  char *exec_name;
+  struct file *f;
+
+  exec_name = malloc (strlen(cmd_line)+1);
+  strlcpy(exec_name, cmd_line, strlen(cmd_line)+1);
+
+  char *sptr;
+  exec_name = strtok_r(exec_name, " ", &sptr);
+
   return process_execute(cmd_line);
 }
 
@@ -246,10 +279,13 @@ bool create (const char *file, unsigned initial_size)
 }
 
 //          [5]
-//bool remove (char *file)
-//{
-//  return -1;
-//}
+bool remove (const char *file)
+{
+  bool result = filesys_remove(file);
+
+  if(result == NULL) return false;
+  else return true;
+}
 
 //          [6]
 // It is different concept from making file. After open the file,
@@ -300,8 +336,9 @@ int filesize (int fd)
 // to the buffer (file_read()).
 int read (int fd, void *buffer, unsigned length)
 {
+//printf("In read, length : %d\n", length);
   if(fd==0) // reads from the keyboard using input_getc()
-  {
+  {//printf("In 1read, fd = %d\n",fd);
     while(length > 0)
     {
       *(char*)buffer = input_getc();
@@ -311,13 +348,15 @@ int read (int fd, void *buffer, unsigned length)
     return length;
   }
   else
-  {
+  {//printf("In 2read, fd = %d\n", fd);
     struct fd_file *ff = find_file(fd);
-
+//printf("After find_file, ff->fd : %d\n", ff->fd);
     if(ff == NULL)
       return -1;
 
     struct file *f = ff->file_;
+//    int result = file_read(f, buffer, length);
+//    printf("In read, return : %d\n", result);
     return file_read(f, buffer, length);
   }
 }

@@ -21,7 +21,6 @@ struct fd_file
 void fd_file_init(struct fd_file *ff);
 int add_filelist(struct file *f);
 
-
 void halt (void);
 void exit (int status);
 pid_t exec (const char *file);

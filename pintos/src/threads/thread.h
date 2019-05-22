@@ -120,6 +120,8 @@ struct thread
     //int64_t wakeup_tick;
   };
 
+struct lock fslock;
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */

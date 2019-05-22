@@ -34,6 +34,7 @@ tid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
+  char *exec_name;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -41,13 +42,24 @@ process_execute (const char *file_name)
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
-//printf("in process.c\n");
-//printf("file_name : %s\n", file_name);
+
+//printf("in process.c | file_name : %s\n", file_name);
+
   strlcpy (fn_copy, file_name, PGSIZE);
-//printf("fn_copy : %s\n", fn_copy);
   /* Create a new thread to execute FILE_NAME. */
   // Where to go this created thread??
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+//printf("*** before strtok\n");
+char *sptr;
+exec_name = malloc(strlen(file_name)+1);
+strlcpy (exec_name, file_name, strlen(file_name)+1);
+exec_name = strtok_r(exec_name, " ", &sptr);
+//printf("*** after strtok\n");
+//printf("*** exec_name : %s\n", exec_name);
+  tid = thread_create (exec_name, PRI_DEFAULT, start_process, fn_copy);
+//printf("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n");
+
+  //Due to malloc, must to free this memory
+  free(exec_name);
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
@@ -137,7 +149,8 @@ process_wait (tid_t child_tid UNUSED)
   struct thread *pt = thread_current();
   struct thread *ct = NULL;
   struct list_elem *e;
-/*printf("-------In process_wait-------\n");
+/*
+printf("-------In process_wait-------\n");
 printf("       pt : %s\n", pt->name);
 printf("       pt->c_num : %d\n", pt->c_num);
 printf("       child_thread : %s\n", child_thread->name);
@@ -181,7 +194,7 @@ printf("       child_thread : %s\n", child_thread->name);
 //printf("After down, [%s] s-value : %d\n", pt->name, pt->sema.value);
 //if(pt->status != 0)
 //printf("After down, [%s] s-value : %d\n", child_thread->name, child_thread->sema.value);
-  //printf(" pt: [%s] exit_status : %d\n", pt->name, pt->child_exit_status);
+//  printf(" pt: [%s] exit_status : %d\n", pt->name, pt->child_exit_status);
   return pt->child_exit_status;
 }
 
