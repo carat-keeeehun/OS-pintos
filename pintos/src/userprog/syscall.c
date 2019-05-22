@@ -93,7 +93,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	break;
     }
     case SYS_OPEN:		// 6.  1
-    {//   printf("**************SYS_OPEN*************\n");
+    {   //printf("**************SYS_OPEN*************\n");
 	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
 //printf("file : %s\n", file_);
@@ -116,10 +116,15 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_READ:		// 8.  3
     {//printf("************SYS_READ*************\n");
 	is_valid_ptr(f->esp+5);
+	//printf("arg0 : %p\n", f->esp+5);
+	//printf("arg1 : %p\n", f->esp+6);
+	//printf("arg2 : %p\n", f->esp+7);
 	is_valid_ptr(f->esp+6);
+	// printf("Invalid ptr : %p\n", f->esp+6);
 	is_valid_ptr(f->esp+7);
 	int fd = *((int*)f->esp+5);
 	void *buffer = (void*)(*((int*)f->esp+6));
+	is_valid_ptr(buffer);
 	unsigned size = *((unsigned*)f->esp+7);
 
 	lock_acquire(&fslock);
@@ -134,6 +139,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	is_valid_ptr(f->esp+7);
 	int fd = *((int*)f->esp+5);
 	const void *buffer = (const void*)(*((int*)f->esp+6));
+	is_valid_ptr(buffer);
 	unsigned size = *((unsigned*)f->esp+7);
 
 //printf("write argument 3-1 : %d\n", fd);
@@ -236,7 +242,7 @@ void exit (int status)
   }
   else
   {
-    printf("      It has no parent <<< orphan child case >>> \n");
+//    printf("      It has no parent <<< orphan child case >>> \n");
     printf("%s: exit(-1)\n", t->name);
   }
 
@@ -249,7 +255,6 @@ pid_t exec (const char *cmd_line)
 {
  // printf("In exec syscall\n");
   char *exec_name;
-  struct file *f;
 
   exec_name = malloc (strlen(cmd_line)+1);
   strlcpy(exec_name, cmd_line, strlen(cmd_line)+1);
@@ -336,9 +341,9 @@ int filesize (int fd)
 // to the buffer (file_read()).
 int read (int fd, void *buffer, unsigned length)
 {
-//printf("In read, length : %d\n", length);
+//printf("In read, fd : %d, length : %d\n", fd, length);
   if(fd==0) // reads from the keyboard using input_getc()
-  {//printf("In 1read, fd = %d\n",fd);
+  {//printf("In 1-read, fd = %d\n",fd);
     while(length > 0)
     {
       *(char*)buffer = input_getc();
@@ -348,15 +353,17 @@ int read (int fd, void *buffer, unsigned length)
     return length;
   }
   else
-  {//printf("In 2read, fd = %d\n", fd);
+  {//printf("In 2-read, fd = %d\n", fd);
     struct fd_file *ff = find_file(fd);
 //printf("After find_file, ff->fd : %d\n", ff->fd);
     if(ff == NULL)
       return -1;
 
     struct file *f = ff->file_;
-//    int result = file_read(f, buffer, length);
-//    printf("In read, return : %d\n", result);
+
+    if(f == NULL)
+      return -1;
+//printf("Just before file_read\n");
     return file_read(f, buffer, length);
   }
 }
@@ -461,9 +468,10 @@ struct file *find_file (int fd)
   {
     struct fd_file *ff =list_entry(e, struct fd_file, elem);
     if(ff->fd == fd)
-      return ff;
+    { //printf("Success to find\n");
+      return ff;}
   }
-
+//printf("Cannot find corresponding fd\n");
   // In case of that cannot finding corresponding file
   return NULL;
 }
