@@ -347,7 +347,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
-
+//printf("** In load, argv[0] = %s\n", argv[0]);
   /* Open executable file. */
   file = filesys_open (argv[0]);
   if (file == NULL) 

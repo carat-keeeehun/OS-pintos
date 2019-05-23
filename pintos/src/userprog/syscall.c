@@ -25,7 +25,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  //printf ("system call!\n");
+//  printf ("system call!\n");
   is_valid_ptr(f->esp);
 
   //int sc_num = *(int*)f->esp;
@@ -51,6 +51,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
 	is_valid_ptr(f->esp+1);
 	char *cmd_line = (char*)(*((int*)f->esp+1));
+	is_valid_ptr(cmd_line);
 //	printf("***********SYS_EXEC***********\n");
 //	printf("cmd_line : %s\n", cmd_line);
 
@@ -71,6 +72,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	is_valid_ptr(f->esp+4);
 	is_valid_ptr(f->esp+5);
 	char *file_ = (char*)(*((int*)f->esp+4));
+	is_valid_ptr(file_);
 	unsigned initial_size = *((unsigned*)f->esp+5);
 //printf("***********SYS_CREATE***********\n");
 //printf("file : %s\n", file_);
@@ -85,6 +87,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
 	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
+	is_valid_ptr(file_);
 //	printf("***********SYS_REMOVE***********\n");
 
 	lock_acquire(&fslock);
@@ -96,6 +99,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     {   //printf("**************SYS_OPEN*************\n");
 	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
+	is_valid_ptr(file_);
 //printf("file : %s\n", file_);
 
 	lock_acquire(&fslock);
@@ -255,13 +259,21 @@ pid_t exec (const char *cmd_line)
 {
  // printf("In exec syscall\n");
   char *exec_name;
+  struct file *f;
 
   exec_name = malloc (strlen(cmd_line)+1);
   strlcpy(exec_name, cmd_line, strlen(cmd_line)+1);
 
   char *sptr;
   exec_name = strtok_r(exec_name, " ", &sptr);
+//printf("In exec function, exec_name : %s\n", exec_name);
 
+//if syscall of exec, we should check whether file exists.
+  f = filesys_open (exec_name);
+  if(f == NULL)
+    return -1;
+
+  file_close(f);
   return process_execute(cmd_line);
 }
 
