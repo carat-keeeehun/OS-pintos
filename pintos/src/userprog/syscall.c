@@ -50,6 +50,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
 	is_valid_ptr(f->esp+1);
 	char *cmd_line = (char*)(*((int*)f->esp+1));
+	is_valid_ptr(cmd_line);
 //	printf("***********SYS_EXEC***********\n");
 //	printf("cmd_line : %s\n", cmd_line);
 
@@ -71,26 +72,36 @@ syscall_handler (struct intr_frame *f UNUSED)
 	is_valid_ptr(f->esp+5);
 	char *file_ = (char*)(*((int*)f->esp+4));
 	unsigned initial_size = *((unsigned*)f->esp+5);
+	is_valid_ptr(file_);
 //printf("***********SYS_CREATE***********\n");
 //printf("file : %s\n", file_);
 //printf("create initial_size : %d\n", initial_size);
+	lock_acquire(&fslock);
 	f->eax = create(file_, initial_size);
+	lock_release(&fslock);
 	break;
     }
     case SYS_REMOVE:		// 5.  1
     {
-//	char *file_ = (char*)(*((int*)f->esp+1));
+	is_valid_ptr(f->esp+1);
+	char *file_ = (char*)(*((int*)f->esp+1));
+	is_valid_ptr(file_);
 //	printf("***********SYS_REMOVE***********\n");
 
-//	f->eax = remove(file_);
+	lock_acquire(&fslock);
+	f->eax = remove(file_);
+	lock_release(&fslock);
 	break;
     }
     case SYS_OPEN:		// 6.  1
     {//   printf("**************SYS_OPEN*************\n");
 	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
+	is_valid_ptr(file_);
 //printf("file : %s\n", file_);
+	lock_acquire(&fslock);
 	f->eax = open(file_);
+	lock_release(&fslock);
 	break;
     }
     case SYS_FILESIZE:		// 7.  1
@@ -98,7 +109,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_FILESIZE***********\n");
 
+	lock_acquire(&fslock);
 	f->eax = filesize(fd);
+	lock_release(&fslock);
 	break;
     }
     case SYS_READ:		// 8.  3
@@ -109,8 +122,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int fd = *((int*)f->esp+5);
 	void *buffer = (void*)(*((int*)f->esp+6));
 	unsigned size = *((unsigned*)f->esp+7);
+	is_valid_ptr(buffer);
 
+	lock_acquire(&fslock);
 	f->eax = read(fd, buffer, size);
+	lock_release(&fslock);
 	break;
     }
     case SYS_WRITE:		// 9. 3
@@ -121,9 +137,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int fd = *((int*)f->esp+5);
 	const void *buffer = (const void*)(*((int*)f->esp+6));
 	unsigned size = *((unsigned*)f->esp+7);
+	is_valid_ptr(buffer);
 
 //printf("write argument 3-1 : %d\n", fd);
+	lock_acquire(&fslock);
 	f->eax = write(fd, buffer, size);
+	lock_release(&fslock);
 	break;
     }
     case SYS_SEEK:		// 10. 2
@@ -132,7 +151,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	unsigned position = *((unsigned*)f->esp+7);
 //	printf("***********SYS_SEEK***********\n");
 
+	lock_acquire(&fslock);
 	seek(fd, position);
+	lock_release(&fslock);
 	break;
     }
     case SYS_TELL:		// 11. 1
@@ -140,7 +161,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_TELL***********\n");
 
+	lock_acquire(&fslock);
 	f->eax = tell(fd);
+	lock_release(&fslock);
 	break;
     }
     case SYS_CLOSE:		// 12. 1
@@ -148,7 +171,10 @@ syscall_handler (struct intr_frame *f UNUSED)
 	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_CLOSE***********\n");
 //	printf("In close, fd = %d\n", fd);
+
+	lock_acquire(&fslock);
 	close(fd);
+	lock_release(&fslock);
 	break;
     }
   }
@@ -212,7 +238,7 @@ void exit (int status)
   }
   else
   {
-    printf("      It has no parent <<< orphan child case >>> \n");
+//    printf("      It has no parent <<< orphan child case >>> \n");
     printf("%s: exit(-1)\n", t->name);
   }
 
@@ -224,6 +250,21 @@ void exit (int status)
 pid_t exec (const char *cmd_line)
 {
  // printf("In exec syscall\n");
+  char *exec_name;
+  struct file *f;
+
+  exec_name = malloc (strlen(cmd_line)+1);
+  strlcpy(exec_name, cmd_line, strlen(cmd_line)+1);
+
+  char *sptr;
+  exec_name = strtok_r(exec_name, " ", &sptr);
+
+  //if syscall of exec, we should check whether file exists.
+  f = filesys_open (exec_name);
+  if(f == NULL)
+    return -1;
+
+  file_close(f);
   return process_execute(cmd_line);
 }
 
@@ -246,10 +287,15 @@ bool create (const char *file, unsigned initial_size)
 }
 
 //          [5]
-//bool remove (char *file)
-//{
-//  return -1;
-//}
+bool remove (const char *file)
+{
+  bool result = filesys_remove(file);
+
+  if(result == NULL)
+    return false;
+  else
+    return true;
+}
 
 //          [6]
 // It is different concept from making file. After open the file,
@@ -318,6 +364,10 @@ int read (int fd, void *buffer, unsigned length)
       return -1;
 
     struct file *f = ff->file_;
+
+    if(f == NULL)
+      return -1;
+
     return file_read(f, buffer, length);
   }
 }
