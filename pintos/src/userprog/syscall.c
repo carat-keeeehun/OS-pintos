@@ -10,7 +10,6 @@
 #include "devices/input.h"
 #include "filesys/file.h"
 #include "threads/vaddr.h"
-#include "threads/synch.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 
@@ -72,12 +71,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 	is_valid_ptr(f->esp+4);
 	is_valid_ptr(f->esp+5);
 	char *file_ = (char*)(*((int*)f->esp+4));
-	is_valid_ptr(file_);
 	unsigned initial_size = *((unsigned*)f->esp+5);
+	is_valid_ptr(file_);
 //printf("***********SYS_CREATE***********\n");
 //printf("file : %s\n", file_);
 //printf("create initial_size : %d\n", initial_size);
-
 	lock_acquire(&fslock);
 	f->eax = create(file_, initial_size);
 	lock_release(&fslock);
@@ -96,12 +94,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 	break;
     }
     case SYS_OPEN:		// 6.  1
-    {   //printf("**************SYS_OPEN*************\n");
+    {//   printf("**************SYS_OPEN*************\n");
 	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
 	is_valid_ptr(file_);
 //printf("file : %s\n", file_);
-
 	lock_acquire(&fslock);
 	f->eax = open(file_);
 	lock_release(&fslock);
@@ -120,16 +117,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_READ:		// 8.  3
     {//printf("************SYS_READ*************\n");
 	is_valid_ptr(f->esp+5);
-	//printf("arg0 : %p\n", f->esp+5);
-	//printf("arg1 : %p\n", f->esp+6);
-	//printf("arg2 : %p\n", f->esp+7);
 	is_valid_ptr(f->esp+6);
-	// printf("Invalid ptr : %p\n", f->esp+6);
 	is_valid_ptr(f->esp+7);
 	int fd = *((int*)f->esp+5);
 	void *buffer = (void*)(*((int*)f->esp+6));
-	is_valid_ptr(buffer);
 	unsigned size = *((unsigned*)f->esp+7);
+	is_valid_ptr(buffer);
 
 	lock_acquire(&fslock);
 	f->eax = read(fd, buffer, size);
@@ -143,20 +136,21 @@ syscall_handler (struct intr_frame *f UNUSED)
 	is_valid_ptr(f->esp+7);
 	int fd = *((int*)f->esp+5);
 	const void *buffer = (const void*)(*((int*)f->esp+6));
-	is_valid_ptr(buffer);
 	unsigned size = *((unsigned*)f->esp+7);
+	is_valid_ptr(buffer);
 
 //printf("write argument 3-1 : %d\n", fd);
 	lock_acquire(&fslock);
-//printf("after lock\n");
 	f->eax = write(fd, buffer, size);
 	lock_release(&fslock);
 	break;
     }
     case SYS_SEEK:		// 10. 2
     {
-	int fd = *((int*)f->esp+5);
-	unsigned position = *((unsigned*)f->esp+7);
+	is_valid_ptr(f->esp+4);
+	is_valid_ptr(f->esp+5);
+	int fd = *((int*)f->esp+4);
+	unsigned position = *((unsigned*)f->esp+5);
 //	printf("***********SYS_SEEK***********\n");
 
 	lock_acquire(&fslock);
@@ -266,7 +260,6 @@ pid_t exec (const char *cmd_line)
 
   char *sptr;
   exec_name = strtok_r(exec_name, " ", &sptr);
-//printf("In exec function, exec_name : %s\n", exec_name);
 
 //if syscall of exec, we should check whether file exists.
   f = filesys_open (exec_name);
@@ -300,8 +293,10 @@ bool remove (const char *file)
 {
   bool result = filesys_remove(file);
 
-  if(result == NULL) return false;
-  else return true;
+  if(result == NULL)
+    return false;
+  else
+    return true;
 }
 
 //          [6]
@@ -324,8 +319,12 @@ int open (const char *file)
     { //printf("Fail to filesys_open\n");
       return -1;
     }
+
+//    if(strcmp(thread_current()->name, file) == 0);
+ //     file_deny_write(f);
+
     //printf("Success to open the file.\n");
-    int fd = add_filelist(f);
+    int fd = add_filelist(f,file);
 //printf("In open, fd = %d\n", fd);
     return fd;
   }
@@ -398,8 +397,7 @@ int write (int fd, const void *buffer, unsigned length)
     if(ff == NULL)
       return -1;
 
-    struct file *f = ff->file_;
-    return file_write(f, buffer, length);
+    return file_write(ff->file_, buffer, length);
   }
 }
 
@@ -408,11 +406,7 @@ void seek (int fd, unsigned position)
 {
   struct fd_file *ff = find_file(fd);
 
-  if(ff == NULL);
-    exit(-1);
-
-  struct file *f = ff->file_;
-  file_seek(f, position);
+  file_seek(ff->file_, position);
 }
 
 //          [11]
@@ -423,8 +417,7 @@ unsigned tell (int fd)
   if(ff == NULL);
     exit(-1);
 
-  struct file *f = ff->file_;
-  return file_tell(f);
+  return file_tell(ff->file_);
 }
 
 
@@ -454,7 +447,7 @@ void close (int fd)
 
 // just add opened file to file list in thread.
 // It returns fd of this file.
-int add_filelist (struct file *f)
+int add_filelist (struct file *f, const char *file)
 {
   struct fd_file *ff = malloc(sizeof(*ff));
   struct thread *t = thread_current();
@@ -462,6 +455,7 @@ int add_filelist (struct file *f)
   t->f_num++;
   ff->fd = t->f_num;
   ff->file_ = f;
+  ff->fname = file;
 
   // fd is increased-order, so I must use push_back
   list_push_back(&t->file_list, &ff->elem);
@@ -478,7 +472,7 @@ struct file *find_file (int fd)
   for(e = list_begin(&t->file_list); e != list_end(&t->file_list);
       e = list_next(e))
   {
-    struct fd_file *ff =list_entry(e, struct fd_file, elem);
+    struct fd_file *ff = list_entry(e, struct fd_file, elem);
     if(ff->fd == fd)
     { //printf("Success to find\n");
       return ff;}
