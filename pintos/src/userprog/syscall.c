@@ -147,8 +147,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_SEEK:		// 10. 2
     {
-	int fd = *((int*)f->esp+5);
-	unsigned position = *((unsigned*)f->esp+7);
+	is_valid_ptr(f->esp+4);
+	is_valid_ptr(f->esp+5);
+	int fd = *((int*)f->esp+4);
+	unsigned position = *((unsigned*)f->esp+5);
 //	printf("***********SYS_SEEK***********\n");
 
 	lock_acquire(&fslock);
@@ -327,7 +329,7 @@ int open (const char *file)
     }
 
     //printf("Success to open the file.\n");
-    int fd = add_filelist(f);
+    int fd = add_filelist(f,file);
 //printf("In open, fd = %d\n", fd);
     return fd;
   }
@@ -354,7 +356,7 @@ int filesize (int fd)
 // Find the file by using fd (find_file()), then read it
 // to the buffer (file_read()).
 int read (int fd, void *buffer, unsigned length)
-{
+{//printf("in read, fd = %d\n", fd);
   if(fd==0) // reads from the keyboard using input_getc()
   {
     while(length > 0)
@@ -373,7 +375,7 @@ int read (int fd, void *buffer, unsigned length)
       return -1;
 
     struct file *f = ff->file_;
-
+//printf("In read2, file name : %s\n", ff->fname);
     if(f == NULL)
       return -1;
 
@@ -399,9 +401,8 @@ int write (int fd, const void *buffer, unsigned length)
     if(ff == NULL)
       return -1;
 
-    struct file *f = ff->file_;
 //printf("In write, just before file_write\n");
-    return file_write(f, buffer, length);
+    return file_write(ff->file_, buffer, length);
   }
 }
 
@@ -409,12 +410,10 @@ int write (int fd, const void *buffer, unsigned length)
 void seek (int fd, unsigned position)
 {
   struct fd_file *ff = find_file(fd);
+//printf("In seek, file name : %s\n", ff->fname);
+//printf("In seek, position : %d\n", position);
 
-  if(ff == NULL);
-    exit(-1);
-
-  struct file *f = ff->file_;
-  file_seek(f, position);
+  file_seek(ff->file_, position);
 }
 
 //          [11]
@@ -456,7 +455,7 @@ void close (int fd)
 
 // just add opened file to file list in thread.
 // It returns fd of this file.
-int add_filelist (struct file *f)
+int add_filelist (struct file *f, const char *file)
 {
   struct fd_file *ff = malloc(sizeof(*ff));
   struct thread *t = thread_current();
@@ -464,6 +463,7 @@ int add_filelist (struct file *f)
   t->f_num++;
   ff->fd = t->f_num;
   ff->file_ = f;
+  ff->fname = file;
 
   // fd is increased-order, so I must use push_back
   list_push_back(&t->file_list, &ff->elem);
@@ -476,10 +476,10 @@ struct file *find_file (int fd)
 {
   struct thread *t = thread_current();
   struct list_elem *e;
-
+//printf("11111111111111\n");
   for(e = list_begin(&t->file_list); e != list_end(&t->file_list);
       e = list_next(e))
-  {
+  {//printf("22222222222\n");
     struct fd_file *ff =list_entry(e, struct fd_file, elem);
     if(ff->fd == fd)
     {// printf("Success to find\n");

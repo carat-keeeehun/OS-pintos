@@ -5,6 +5,7 @@
 #include <list.h>
 #include "lib/user/syscall.h"
 #include "threads/interrupt.h"
+#include "filesys/off_t.h"
 
 void syscall_init (void);
 
@@ -15,11 +16,12 @@ struct fd_file
 {
   int fd;
   struct file *file_;
-  struct list_elem elem; 
+  struct list_elem elem;
+  char *fname; 
 };
 
 void fd_file_init(struct fd_file *ff);
-int add_filelist(struct file *f);
+int add_filelist(struct file *f, const char *file);
 
 
 void halt (void);
