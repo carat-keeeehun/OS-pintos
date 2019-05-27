@@ -94,7 +94,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	break;
     }
     case SYS_OPEN:		// 6.  1
-    {//   printf("**************SYS_OPEN*************\n");
+    {//	printf("**************SYS_OPEN*************\n");
 	is_valid_ptr(f->esp+1);
 	char *file_ = (char*)(*((int*)f->esp+1));
 	is_valid_ptr(file_);
@@ -115,7 +115,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	break;
     }
     case SYS_READ:		// 8.  3
-    {//printf("************SYS_READ*************\n");
+    {//	printf("************SYS_READ*************\n");
 	is_valid_ptr(f->esp+5);
 	is_valid_ptr(f->esp+6);
 	is_valid_ptr(f->esp+7);
@@ -130,7 +130,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	break;
     }
     case SYS_WRITE:		// 9. 3
-    {//printf("************SYS_WRITE************\n");
+    {//	printf("************SYS_WRITE************\n");
 	is_valid_ptr(f->esp+5);
 	is_valid_ptr(f->esp+6);
 	is_valid_ptr(f->esp+7);
@@ -317,6 +317,15 @@ int open (const char *file)
     { //printf("Fail to filesys_open\n");
       return -1;
     }
+    // For test of rox.
+    // Check whether executable of a running process will be modified.
+    // That is, Check whether current thread name is same as file name.
+    if(strcmp(thread_current()->name, file) == 0)
+    {
+      //If same, strcmp returns 0. And we should prevent it from writing.
+      file_deny_write(f);
+    }
+
     //printf("Success to open the file.\n");
     int fd = add_filelist(f);
 //printf("In open, fd = %d\n", fd);
@@ -391,6 +400,7 @@ int write (int fd, const void *buffer, unsigned length)
       return -1;
 
     struct file *f = ff->file_;
+//printf("In write, just before file_write\n");
     return file_write(f, buffer, length);
   }
 }
@@ -472,7 +482,8 @@ struct file *find_file (int fd)
   {
     struct fd_file *ff =list_entry(e, struct fd_file, elem);
     if(ff->fd == fd)
-      return ff;
+    {// printf("Success to find\n");
+      return ff;}
   }
 
   // In case of that cannot finding corresponding file
