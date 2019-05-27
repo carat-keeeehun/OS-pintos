@@ -106,6 +106,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_FILESIZE:		// 7.  1
     {
+	is_valid_ptr(f->esp+1);
 	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_FILESIZE***********\n");
 
@@ -160,6 +161,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_TELL:		// 11. 1
     {
+	is_valid_ptr(f->esp+1);
 	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_TELL***********\n");
 
@@ -170,6 +172,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CLOSE:		// 12. 1
     {
+	is_valid_ptr(f->esp+1);
 	int fd = *((int*)f->esp+1);
 //	printf("***********SYS_CLOSE***********\n");
 //	printf("In close, fd = %d\n", fd);
@@ -321,7 +324,7 @@ int open (const char *file)
     }
 
 //    if(strcmp(thread_current()->name, file) == 0);
- //     file_deny_write(f);
+//      file_deny_write(f);
 
     //printf("Success to open the file.\n");
     int fd = add_filelist(f,file);
