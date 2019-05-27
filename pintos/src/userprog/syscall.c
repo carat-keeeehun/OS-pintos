@@ -323,9 +323,10 @@ int open (const char *file)
       return -1;
     }
 
-//    if(strcmp(thread_current()->name, file) == 0);
-//      file_deny_write(f);
-
+    if(strcmp(thread_current()->name, file) == 0)
+    {
+      file_deny_write(f);
+    }
     //printf("Success to open the file.\n");
     int fd = add_filelist(f,file);
 //printf("In open, fd = %d\n", fd);
@@ -400,7 +401,18 @@ int write (int fd, const void *buffer, unsigned length)
     if(ff == NULL)
       return -1;
 
-    return file_write(ff->file_, buffer, length);
+    struct file *f = ff->file_;
+
+    if(f == NULL)
+      return -1;
+
+    if(f->deny_write == true)
+    {
+//	printf("In write, prevent from writing\n");
+      file_deny_write(f);
+    }
+
+    return file_write(f, buffer, length);
   }
 }
 
