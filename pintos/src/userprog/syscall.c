@@ -52,7 +52,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 	char *cmd_line = (char*)(*((int*)f->esp+1));
 	is_valid_ptr(cmd_line);
 //	printf("***********SYS_EXEC***********\n");
-//	printf("cmd_line : %s\n", cmd_line);
+//	printf("***********cmd_line : %s\n", cmd_line);
 
 	f->eax = exec(cmd_line);
 	break;
@@ -252,6 +252,7 @@ void exit (int status)
 pid_t exec (const char *cmd_line)
 {
  // printf("In exec syscall\n");
+  lock_acquire(&fslock);
   char *exec_name;
   struct file *f;
 
@@ -261,12 +262,19 @@ pid_t exec (const char *cmd_line)
   char *sptr;
   exec_name = strtok_r(exec_name, " ", &sptr);
 
+//printf("In exec syscall, current thread : %s\n", thread_current()->name);
+//printf("In exec syscall, exec_name(cmd) : %s\n", exec_name);
+
   //if syscall of exec, we should check whether file exists.
   f = filesys_open (exec_name);
   if(f == NULL)
+  {
+    lock_release(&fslock);
     return -1;
+  }
 
   file_close(f);
+  lock_release(&fslock);
   return process_execute(cmd_line);
 }
 
@@ -325,6 +333,8 @@ int open (const char *file)
     if(strcmp(thread_current()->name, file) == 0)
     {
       //If same, strcmp returns 0. And we should prevent it from writing.
+      //file->deny_write changes into true.
+      //--> we should check it in write system call.
       file_deny_write(f);
     }
 
@@ -401,8 +411,12 @@ int write (int fd, const void *buffer, unsigned length)
     if(ff == NULL)
       return -1;
 
+    struct file *f = ff->file_;
+    if(f->deny_write == true)
+      file_deny_write(f);
+
 //printf("In write, just before file_write\n");
-    return file_write(ff->file_, buffer, length);
+    return file_write(f, buffer, length);
   }
 }
 

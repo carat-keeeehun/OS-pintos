@@ -20,6 +20,13 @@ struct fd_file
   char *fname; 
 };
 
+struct file
+{
+  struct inode *inode;
+  off_t pos;
+  bool deny_write;
+};
+
 void fd_file_init(struct fd_file *ff);
 int add_filelist(struct file *f, const char *file);
 

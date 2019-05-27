@@ -81,20 +81,20 @@ printf("Empty file list\n");*/
 
 //    if(thread_current()->sema.value == 0)
 //      sema_up(&thread_current()->sema);
-/*
-printf("-----In process_execute,-----\n");
-printf("     thread name : %s\n", thread_current()->name);
-printf("     thread s-value : %d\n", thread_current()->sema.value);
-printf("     child name : %s\n", child_thread->name);
-printf("     child s-value : %d\n", child_thread->sema.value);
-printf("     thread status : %d\n", thread_current()->status);
-printf("     child's c_num : %d\n", child_thread->c_num);
-printf("     thread's c_num : %d\n", thread_current()->c_num);
-if(child_thread->c_num!=0)
+
+//printf("-----In process_execute,-----\n");
+//printf("     thread name : %s\n", thread_current()->name);
+//printf("     thread s-value : %d\n", thread_current()->sema.value);
+//printf("     child name : %s\n", child_thread->name);
+//printf("     child s-value : %d\n", child_thread->sema.value);
+//printf("     thread status : %d\n", thread_current()->status);
+//printf("     child's c_num : %d\n", child_thread->c_num);
+//printf("     thread's c_num : %d\n", thread_current()->c_num);
+/*if(child_thread->c_num!=0)
 printf("     child has child\n"); 
-printf("     parent of child : %s\n", child_thread->parent->name);
-printf("-----------------------------\n");
-*/  }
+printf("     parent of child : %s\n", child_thread->parent->name);*/
+//printf("-----------------------------\n");
+  }
   return tid;
 }
 
@@ -341,6 +341,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+//printf("argv[0] : %s\n", argv[0]);
+//printf("argv[1] : %s\n", argv[1]);
   /* Open executable file. */
   file = filesys_open (argv[0]);
   if (file == NULL) 
