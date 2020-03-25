@@ -90,6 +90,8 @@ thread_init (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   lock_init (&tid_lock);
+  lock_init (&fslock);
+
   list_init (&ready_list);
   list_init (&all_list);
 
@@ -98,6 +100,17 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
+  // Initialize file & child list
+  list_init (&initial_thread->file_list);
+  list_init (&initial_thread->child_list);
+
+  initial_thread->f_num = 1;
+  initial_thread->c_num = 0;
+  initial_thread->parent = NULL;
+
+  // Initialize semaphore with value = 1
+  sema_init(&initial_thread->sema, 1);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -171,7 +184,7 @@ thread_create (const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
-  enum intr_level old_level;
+  //enum intr_level old_level;
 
   ASSERT (function != NULL);
 
@@ -188,7 +201,7 @@ thread_create (const char *name, int priority,
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
      member cannot be observed. */
-  old_level = intr_disable ();
+  //old_level = intr_disable ();
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -205,13 +218,13 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  intr_set_level (old_level);
+  //intr_set_level (old_level);
 
   /* Add to run queue. */
   thread_unblock (t);
 
   // Compare priority with current running thread.
-  check_priority();
+  //check_priority();
 
   return tid;
 }
@@ -250,9 +263,9 @@ thread_unblock (struct thread *t)
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
 
-  // list_push_back (&ready_list, &t->elem);
+  list_push_back (&ready_list, &t->elem);
   // To use thread's priority, we should order the ready_list with priority.
-  list_insert_ordered (&ready_list, &t->elem, prior_thread, 0);
+  //list_insert_ordered (&ready_list, &t->elem, prior_thread, 0);
 
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -298,11 +311,15 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+  sema_up(&thread_current()->sema);
 #ifdef USERPROG
   process_exit ();
 #endif
-
-  /* Remove thread from all threads list, set our status to dying,
+/*printf("Success to process_exit()\n");
+printf("In thread_exit,\n");
+printf("thread name : %s\n", thread_current()->name);
+printf("thread status : %d\n", thread_current()->status);
+*/  /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
@@ -319,14 +336,14 @@ thread_yield (void)
 {
   struct thread *cur = thread_current ();
   enum intr_level old_level;
-  
+ 
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    //list_push_back (&ready_list, &cur->elem);
+    list_push_back (&ready_list, &cur->elem);
     //Also order the ready list with priority.
-    list_insert_ordered (&ready_list, &cur->elem, prior_thread, 0);
+    //list_insert_ordered (&ready_list, &cur->elem, prior_thread, 0);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -354,7 +371,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  check_priority();
+  //check_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -476,7 +493,12 @@ init_thread (struct thread *t, const char *name, int priority)
 
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
-  strlcpy (t->name, name, sizeof t->name);
+
+  // Extract only thread_name.
+  char *new_name, *sptr;
+  new_name = strtok_r((char*)name, " ", &sptr);
+
+  strlcpy (t->name, new_name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
@@ -599,7 +621,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 /* To use list_insert_ordered function, I make a list_less_function below,
    which is boolean function and notifies what is less value. */
-
+/*
 // This function is for using list_insert_ordered (find earlier wakeup tick)
 bool less_wakeup_tick(struct list_elem *e1, struct list_elem *e2, void *aux)
 {
@@ -636,6 +658,4 @@ void check_priority(void)
       thread_yield();
   }
 }
-
-
-
+*/

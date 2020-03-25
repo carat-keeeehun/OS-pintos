@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <list.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -17,10 +18,14 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+static void find_child (struct thread *t, void *aux UNUSED);
+static struct thread *child_thread;
+static tid_t child_tid;
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -29,6 +34,7 @@ tid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
+  char *exec_name;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -36,12 +42,59 @@ process_execute (const char *file_name)
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
+//printf("in process.c\n");
+//printf("file_name : %s\n", file_name);
   strlcpy (fn_copy, file_name, PGSIZE);
+//printf("fn_copy : %s\n", fn_copy);
+  char *sptr;
+  exec_name = malloc(strlen(file_name)+1);
+  strlcpy (exec_name, file_name, strlen(file_name)+1);
+  exec_name = strtok_r(exec_name, " ", &sptr);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  // Where to go this created thread??
+  tid = thread_create (exec_name, PRI_DEFAULT, start_process, fn_copy);
+
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (fn_copy);
+  // To add new thread(tid) to child_list,
+  // Find corresponding child thread in all_list -> foreach function
+  else
+  {
+    // Store tid into static child_tid.
+    child_tid = tid;
+
+    // For using thread_foreach, I should disable interrupts.
+    enum intr_level old_level = intr_disable();
+
+    // Find the corresponding thread with child_tid.
+    thread_foreach(*find_child, NULL);
+    child_thread->parent = thread_current();
+/*printf("current thread : %s\n", thread_current()->name);
+if(list_empty(&thread_current()->child_list))
+printf("Empty child list\n");
+if(list_empty(&thread_current()->file_list))
+printf("Empty file list\n");*/
+    list_push_back(&thread_current()->child_list, &child_thread->c_elem);
+    thread_current()->c_num++;
+    intr_set_level (old_level);
+
+//    if(thread_current()->sema.value == 0)
+//      sema_up(&thread_current()->sema);
+
+//printf("-----In process_execute,-----\n");
+//printf("     thread name : %s\n", thread_current()->name);
+//printf("     thread s-value : %d\n", thread_current()->sema.value);
+//printf("     child name : %s\n", child_thread->name);
+//printf("     child s-value : %d\n", child_thread->sema.value);
+//printf("     thread status : %d\n", thread_current()->status);
+//printf("     child's c_num : %d\n", child_thread->c_num);
+//printf("     thread's c_num : %d\n", thread_current()->c_num);
+/*if(child_thread->c_num!=0)
+printf("     child has child\n"); 
+printf("     parent of child : %s\n", child_thread->parent->name);*/
+//printf("-----------------------------\n");
+  }
   return tid;
 }
 
@@ -60,7 +113,6 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -88,7 +140,55 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  struct thread *pt = thread_current();
+  struct thread *ct = NULL;
+  struct list_elem *e;
+/*printf("-------In process_wait-------\n");
+printf("       pt : %s\n", pt->name);
+printf("       pt->c_num : %d\n", pt->c_num);
+printf("       child_thread : %s\n", child_thread->name);
+*/
+  for(e = list_begin(&pt->child_list); e != list_end(&pt->child_list);
+      e = list_next(e))
+  {
+    struct thread *tt = list_entry(e, struct thread,c_elem);
+    if(tt->parent == pt)
+    { //printf("Find such child [%s]\n", tt->name);
+      ct = tt;
+      //printf("ct->parent : %s\n", ct->parent->name);
+    }
+  }
+
+  if(ct == NULL)
+  { // In case that cannot find corresponding child.
+    //printf("Cannot find corresponding ct\n");
+    return -1;
+  }
+
+  if(pt->c_num == 0 || ct->parent==NULL)
+  { // In case that parent has no child,or child is orphan.
+//    printf("<process_wait>[%s] c_num = %d\n", pt->name, pt->c_num);
+//    printf("<process_wait>[%s] has no child.\n", pt->name);
+    return -1;
+  }
+
+  if(pt->tid != ct->parent->tid)
+  { // In case that it is not child of parent.
+//    printf("<process_wait>[%s] is not parent of this child.\n", pt->name);
+    return -1;
+  }
+
+//printf("***  [%s] status : %d  ***\n", pt->name, pt->status);
+//if(pt->status != 0)
+//printf("***  [%s] status : %d  ***\n", child_thread->name, child_thread->status);
+//printf("Before down, [%s] s-value : %d\n", pt->name, pt->sema.value);
+//printf("Before down, [%s] s-value : %d\n", child_thread->name, child_thread->sema.value);
+  sema_down(&ct->sema);
+//printf("After down, [%s] s-value : %d\n", pt->name, pt->sema.value);
+//if(pt->status != 0)
+//printf("After down, [%s] s-value : %d\n", child_thread->name, child_thread->sema.value);
+  //printf(" pt: [%s] exit_status : %d\n", pt->name, pt->child_exit_status);
+  return pt->child_exit_status;
 }
 
 /* Free the current process's resources. */
@@ -213,16 +313,38 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct file *file = NULL;
   off_t file_ofs;
   bool success = false;
-  int i;
+  int i, j, word_align;
 
+  //approximate value, 40 in argv due to cmdline(128byte)
+  int argc = 0;
+  char *argv[40];
+  char *argv_;
+
+  //Break the command into words
+  char *token, *sptr;
+
+  for(token = strtok_r((char*)file_name, " ", &sptr); token!=NULL;
+        token = strtok_r(NULL, " ", &sptr))
+  {
+    argv[argc] = token;
+    argc++;
+  //  printf("argc = %d\n", argc);
+  }
+/*
+  for(i = 0; i<argc; i++)
+    printf("argv[%d] = %s\n", i, argv[i]);
+  printf("argv[%d] = %s\n", argc, argv[argc]);
+*/    
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
 
+//printf("argv[0] : %s\n", argv[0]);
+//printf("argv[1] : %s\n", argv[1]);
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (argv[0]);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -238,7 +360,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", argv[0]);
       goto done; 
     }
 
@@ -304,6 +426,48 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
+
+  // Push arguments in the stack <rignt-to-left>
+  for(j = argc-1; j>=0; j--)
+  {
+    *esp = *esp - (strlen(argv[j])+1);
+    memcpy(*esp, argv[j], strlen(argv[j])+1);
+    argv[j] = *esp;
+  }
+  
+  // Align 4 bytes before pushing addresses
+
+  word_align = ((int)(*esp))&0x0000000f;
+
+  while(word_align%4 != 0)
+  {
+    *esp = *esp - 1;
+    word_align = ((int)(*esp))&0x0000000f;
+  }
+
+  // Make last argument null
+  *esp = *esp - 4;
+  memset(*esp, 0, 4);
+
+  // Push pointers to argument strings
+  for(j = argc-1; j>=0; j--)
+  {
+    *esp = *esp - 4;
+    memcpy(*esp, &argv[j], 4);
+  }
+
+  // Push pointers to argument strings(argv)
+  argv_ = *esp;
+  *esp = *esp - 4;
+  memcpy(*esp, &argv_, 4);
+  // Push number of arguments (argc).
+  *esp = *esp - 4;
+  memcpy(*esp, &argc, 4);
+  // Push a fake "return address"
+  *esp = *esp - 4;
+  *(int *)(*esp) = 0; 
+  //hex_dump(*esp, *esp, 100, 1);
+
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -437,7 +601,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE-12;
       else
         palloc_free_page (kpage);
     }
@@ -462,4 +626,24 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+// This function is only for using thread_foreach to find child who has child_tid
+static void
+find_child (struct thread *t, void *aux UNUSED)
+{
+  if(child_tid == t->tid)
+  {
+    child_thread = t;
+    sema_init(&child_thread->sema, 0);
+
+    list_init(&child_thread->file_list);
+    list_init(&child_thread->child_list);
+
+    // fd 0,1 are reserved for standart I/O
+    // So we returns a new file descriptor started from 2.
+    child_thread->f_num = 1;
+    child_thread->c_num = 0;
+    child_thread->parent = NULL;
+  }
 }
